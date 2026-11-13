@@ -26,7 +26,8 @@ check_docs() {
   run_tool typos
 
   echo "==> Running lychee..."
-  run_tool lychee --offline --no-progress --include-fragments './**/*.md'
+  run_tool lychee --offline --no-progress --include-fragments './**/*.md' |
+    sed -E 's/[🔍🔗✅🚫👻⏳🔀❓⛔📝❌] ?//g'
 
   echo "==> Running actionlint..."
   run_tool actionlint
