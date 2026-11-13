@@ -1,5 +1,7 @@
 # botifil
 
+[![CI](https://github.com/0xkhalz/botifil/actions/workflows/ci.yml/badge.svg)](https://github.com/0xkhalz/botifil/actions/workflows/ci.yml)
+
 Telegram bot that approves or declines join requests for groups (Rust + teloxide).
 
 **Status:** bootstrapping — architecture and agent contracts in progress.
