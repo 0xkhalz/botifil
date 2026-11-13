@@ -1,0 +1,47 @@
+name: Feature Request
+description: Propose a new feature or enhancement for botifil
+labels: ["type:feat", "status:needs-spec"]
+body:
+  - type: textarea
+    id: problem-goal
+    attributes:
+      label: Problem / Goal
+      description: What problem are you trying to solve or what goal are you trying to achieve?
+    validations:
+      required: true
+  - type: input
+    id: linked-spec
+    attributes:
+      label: Linked Spec
+      description: Path to spec (docs/specs/NNN-slug/spec.md) or "needs spec".
+      placeholder: "docs/specs/NNN-slug/spec.md or needs spec"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Checklist of verifiable outcomes.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: Explicit non-goals and deferred capabilities.
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: Estimated change size.
+      options:
+        - "size:S"
+        - "size:M"
+        - "size:L (must split)"
+    validations:
+      required: true

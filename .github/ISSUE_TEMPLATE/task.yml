@@ -1,0 +1,58 @@
+name: Agent Task
+description: Delegation packet for autonomous agent tasks
+labels: ["status:ready"]
+body:
+  - type: input
+    id: parent-spec-issue
+    attributes:
+      label: Parent Spec/Issue
+      description: Parent issue or spec reference (e.g., #12 or docs/specs/NNN-slug/spec.md).
+      placeholder: "#12 or docs/specs/NNN-slug/spec.md"
+    validations:
+      required: true
+  - type: textarea
+    id: owned-files
+    attributes:
+      label: Owned Files
+      description: Exact allowlist of files this task is authorized to touch.
+      placeholder: |
+        - path/to/file1
+        - path/to/file2
+    validations:
+      required: true
+  - type: textarea
+    id: slice-boundary
+    attributes:
+      label: Slice Boundary
+      description: Single deliverable with <= 300 changed LoC.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-Goals
+      description: Explicit boundaries, files, or subsystems not to touch.
+    validations:
+      required: true
+  - type: input
+    id: verifier-command
+    attributes:
+      label: Verifier Command
+      description: Command that must exit 0 for this task to be complete.
+      value: "scripts/verify.sh"
+    validations:
+      required: true
+  - type: checkboxes
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      description: Invariants that must be satisfied before completion.
+      options:
+        - label: "All owned files exist and stay within line ceilings (<= 300 lines)"
+          required: true
+        - label: "Total diff is <= 300 LoC (git diff --stat origin/main)"
+          required: true
+        - label: "Verifier command runs and passes cleanly (exit code 0)"
+          required: true
+        - label: "No unapproved dependencies, secrets, or personal paths"
+          required: true
