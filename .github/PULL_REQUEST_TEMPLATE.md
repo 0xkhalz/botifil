@@ -25,9 +25,3 @@ verify: OK
 - [ ] Spec or ADR linked if applicable
 - [ ] No secrets, tokens, private IDs, or local paths
 - [ ] No unapproved dependencies added
-
-## Agent Metadata
-
-- **Role**:
-- **Model**:
-- **Worktree Branch**:
