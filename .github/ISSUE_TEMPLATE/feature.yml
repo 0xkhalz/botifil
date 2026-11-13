@@ -1,6 +1,6 @@
 name: Feature Request
 description: Propose a new feature or enhancement for botifil
-labels: ["type:feat", "status:needs-spec"]
+labels: ["type:feat"]
 body:
   - type: textarea
     id: problem-goal
@@ -13,10 +13,10 @@ body:
     id: linked-spec
     attributes:
       label: Linked Spec
-      description: Path to spec (docs/specs/NNN-slug/spec.md) or "needs spec".
-      placeholder: "docs/specs/NNN-slug/spec.md or needs spec"
+      description: Optional. Path to docs/specs/NNN-slug/spec.md for large multi-PR features.
+      placeholder: "docs/specs/NNN-slug/spec.md"
     validations:
-      required: true
+      required: false
   - type: textarea
     id: acceptance-criteria
     attributes:

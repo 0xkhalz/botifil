@@ -21,7 +21,7 @@ Telegram bot that approves/declines group join requests. Rust + teloxide. Agents
 - No `unwrap`, `expect`, or `panic!` outside tests; `unsafe` forbidden.
 - No new dependencies without an accepted ADR.
 - Never commit or log tokens, chat/group IDs, or personal filesystem paths.
-- Features require an approved spec in `docs/specs/`; architectural changes require an ADR in `docs/decisions/`.
+- Large multi-PR features use an approved spec in `docs/specs/`; single-PR tasks use the GitHub Issue directly. Architectural changes require an ADR in `docs/decisions/`.
 - Ambiguous scope or 3 failed verify runs → apply label `status:needs-human` and stop.
 
 ## 4. Architecture Map
