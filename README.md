@@ -19,3 +19,5 @@ Telegram bot that approves or declines join requests for groups (Rust + teloxide
 - [AGENTS.md](AGENTS.md) — Agent instructions, constraints, and architecture map.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution workflow and collaboration protocol.
 - [SECURITY.md](SECURITY.md) — Security policy and vulnerability reporting.
+
+<!-- neg test -->
