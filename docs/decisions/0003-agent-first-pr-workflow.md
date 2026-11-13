@@ -22,7 +22,7 @@
 
 ## Decision Outcome
 
-Chosen option: GitHub Ruleset (`.github/rulesets/main.json`) with 0 required approvals. Merges to `main` require green `ci-ok`, conventional `pr-title`, resolution of all review threads (`required_review_thread_resolution`), and squash-only merges. Agents develop in worktrees, reviewer agents post comments, and the maintainer merges.
+Chosen option: GitHub Ruleset (`.github/rulesets/main.json`) with 0 required approvals. Merges to `main` require green `ci-ok`, conventional `pr-title`, resolution of all review threads (`required_review_thread_resolution`), and rebase-only merges (`allowed_merge_methods: ["rebase"]` with `required_linear_history` to preserve atomic commits without merge or squash commits). Agents develop in worktrees, reviewer agents post comments, and the maintainer merges.
 
 ## Consequences
 
