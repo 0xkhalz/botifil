@@ -35,7 +35,7 @@ EOF
 
 # 2. Ruleset
 echo "Applying branch ruleset..."
-RULESET_ID=$(gh api "repos/$REPO/rulesets" --jq '.[] | select(.name == "main-protection") | .id' || true)
+RULESET_ID=$(gh api "repos/$REPO/rulesets" --jq 'first(.[] | select(.name == "main-protection") | .id) // empty')
 
 if [[ -n "$RULESET_ID" ]]; then
   echo "Updating existing ruleset id $RULESET_ID..."
