@@ -26,19 +26,13 @@ check_docs() {
   run_tool typos
 
   echo "==> Running lychee..."
-  local lychee_args=(--offline --no-progress --include-fragments)
-  if [[ ! -f AGENTS.md ]]; then
-    lychee_args+=(--exclude 'AGENTS\.md')
-  fi
-  if [[ ! -f CONTRIBUTING.md ]]; then
-    lychee_args+=(--exclude 'CONTRIBUTING\.md')
-  fi
-  run_tool lychee "${lychee_args[@]}" './**/*.md'
+  run_tool lychee --offline --no-progress --include-fragments './**/*.md'
 
   echo "==> Running actionlint..."
   run_tool actionlint
 
   echo "==> Running gitleaks..."
+  run_tool gitleaks dir --no-banner --redact .
   run_tool gitleaks git --no-banner --redact .
 
   echo "==> Checking 300-line ceiling on tracked files..."
@@ -51,7 +45,7 @@ check_docs() {
         fi
         if [[ -f "$file" ]]; then
           local lines
-          lines=$(wc -l < "$file")
+          lines=$(awk 'END {print NR}' "$file")
           if (( lines > 300 )); then
             echo "ERROR: $file exceeds 300 lines ($lines lines)" >&2
             failed=1
