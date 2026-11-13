@@ -12,10 +12,9 @@ trigger: model_decision
   - Deployment architecture or container infrastructure changes.
   - Public interface or breaking bot behavior changes.
 
-## Specifications Lifecycle
-- Features must define a specification in `docs/specs/`.
-- Lifecycle status progression: `draft` -> `approved` (via merged pull request) -> `implemented`.
-- Agents only implement features whose spec is marked `approved`.
+## Specifications (Optional for Small Tasks)
+- Small/single-PR tasks use the GitHub Issue as their spec.
+- Large multi-PR features use `docs/specs/NNN-slug/` (`draft` -> `approved` via merged PR -> `implemented`); if an issue links a spec, wait until it is approved.
 
 ## Documentation Style & Formatting
 - All markdown files must remain ≤ 300 lines total.

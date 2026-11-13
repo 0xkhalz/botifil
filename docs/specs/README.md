@@ -2,6 +2,8 @@
 
 Feature specifications and task decompositions for `botifil`.
 
+Specifications in `docs/specs/` are optional and used for large multi-PR features; single-PR tasks use a GitHub Issue directly.
+
 ## Directory Convention
 
 Each feature or slice lives in an isolated folder:
