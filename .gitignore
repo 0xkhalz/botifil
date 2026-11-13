@@ -1,0 +1,7 @@
+/target
+.env
+.env.*
+!.env.example
+.worktrees/
+# global gitignore ignores .agents/ — this repo commits it on purpose
+!/.agents/
