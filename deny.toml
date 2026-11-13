@@ -4,9 +4,24 @@
 all-features = true
 
 [advisories]
+ignore = [
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 is unmaintained, pulled transitively via aquamarine -> teloxide 0.17.0 with no upstream fix available" },
+]
 
 [licenses]
-allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0"]
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "WTFPL",
+    "Zlib",
+]
 confidence-threshold = 0.93
 
 [bans]
