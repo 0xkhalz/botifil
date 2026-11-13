@@ -26,10 +26,10 @@ Telegram bot that approves/declines group join requests. Rust + teloxide. Agents
 
 ## 4. Architecture Map
 - `src/`: future bot implementation (teloxide dispatcher, filters, handlers).
-- `docs/domain/`: future Telegram API domain models and join-request mechanics.
-- `docs/decisions/`: future Architecture Decision Records (ADRs).
-- `docs/specs/`: future implementation specifications and PRDs.
+- `docs/domain/`: Telegram API domain models and join-request mechanics.
+- `docs/decisions/`: Architecture Decision Records (ADRs).
+- `docs/specs/`: implementation specifications and PRDs.
 - `.agents/rules/`: agent behavior and engineering rules.
-- `.agents/skills/`: future task-specific agent workflows.
+- `.agents/skills/`: task-specific agent workflows.
 - `.github/`: CI workflows and automated checks.
 - `scripts/`: local verification and repository tooling.

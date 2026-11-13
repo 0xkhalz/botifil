@@ -30,10 +30,10 @@ Maintainers bootstrap labels and repository settings via:
 
 ## Labels
 
-- `type:*`: `type:feat`, `type:fix`, `type:docs`, `type:refactor`, `type:chore`.
-- `area:*`: `area:bot`, `area:ci`, `area:docs`, `area:security`.
-- `status:*`: `status:ready`, `status:in-progress`, `status:needs-review`, `status:needs-human`.
-- `size:*`: `size:xs`, `size:s`, `size:m` (PR ceiling: ≤ 300 LoC diff).
+- `type:*`: `type:feat`, `type:fix`, `type:docs`, `type:chore`, `type:refactor`, `type:test`, `type:perf`.
+- `area:*`: `area:bot`, `area:ci`, `area:docs`, `area:agents`.
+- `status:*`: `status:needs-spec`, `status:ready`, `status:in-progress`, `status:blocked`, `status:needs-human`.
+- `size:*`: `size:S`, `size:M`, `size:L` (PR ceiling: ≤ 300 LoC diff).
 
 ## Review & Merge Policy
 
