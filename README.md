@@ -6,5 +6,4 @@ Telegram bot that approves or declines join requests for my groups (Rust + telox
 
 ## Working here
 
-- [AGENTS.md](AGENTS.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
+Developer guides (AGENTS.md and CONTRIBUTING.md) arrive in PR 2.
