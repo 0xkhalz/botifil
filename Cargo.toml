@@ -1,0 +1,44 @@
+[package]
+name = "botifil"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+
+[lib]
+name = "botifil"
+path = "src/config.rs"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+
+[profile.dev]
+codegen-units = 1
+debug = "line-tables-only"
+incremental = false
+
+[profile.release]
+lto = "thin"
+strip = true
+panic = "abort"
+
+[dependencies]
+teloxide = { version = "0.17", default-features = false, features = ["macros", "throttle", "rustls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+anyhow = "1"
+dotenvy = "0.15"
+
+[dev-dependencies]
+wiremock = "0.6"
+url = "2"
