@@ -1,0 +1,4 @@
+[default.extend-words]
+teloxide = "teloxide"
+dptree = "dptree"
+botifil = "botifil"
