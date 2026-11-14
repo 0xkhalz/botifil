@@ -1,4 +1,5 @@
 mod memory;
+pub mod reconciliation;
 mod redb;
 
 use std::path::Path;
