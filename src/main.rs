@@ -1,6 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
-use botifil::{config, domain::SessionOutcome, handlers, store::SessionStore};
+use botifil::{
+    config,
+    domain::SessionOutcome,
+    handlers,
+    store::{DEFAULT_MAX_CAPACITY, SessionStore, reconciliation::reconcile_on_startup},
+};
 use teloxide::{
     adaptors::{Throttle, throttle::Limits},
     dispatching::Dispatcher,
@@ -69,7 +74,11 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
     let cfg = Arc::new(config::Config::from_env()?);
-    let store = SessionStore::default();
+    let db_path = cfg.db_path().to_path_buf();
+    let store =
+        tokio::task::spawn_blocking(move || SessionStore::open_redb(db_path, DEFAULT_MAX_CAPACITY))
+            .await??;
+    reconcile_on_startup(&store, tokio::time::Instant::now()).await;
     let throttled = Bot::new(cfg.telegram_token()).throttle(Limits::default());
     check_bot(&throttled).await?;
 
