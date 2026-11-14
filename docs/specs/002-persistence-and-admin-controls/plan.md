@@ -1,6 +1,6 @@
 # Plan: Persistence and Admin Controls
 
-- Status: draft
+- Status: approved
 - Spec: [spec.md](./spec.md)
 
 ## Architecture & Component Design

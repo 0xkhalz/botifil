@@ -1,6 +1,6 @@
 # Persistence Engine for Session Storage
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-14
 
 ## Context and Problem Statement
