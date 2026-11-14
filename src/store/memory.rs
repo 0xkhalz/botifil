@@ -1,7 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
+};
 use teloxide::types::{ChatId, MessageId, UserId};
-use tokio::{sync::RwLock, time::Instant};
+use tokio::time::Instant;
 
+use super::Storage;
 use crate::domain::{PendingJoin, SessionToken};
 
 pub const DEFAULT_MAX_CAPACITY: usize = 4096;
@@ -10,6 +14,8 @@ pub const DEFAULT_MAX_CAPACITY: usize = 4096;
 pub enum StoreError {
     #[error("session store capacity exceeded")]
     CapacityExceeded,
+    #[error("storage backend error: {0}")]
+    Backend(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,30 +61,26 @@ impl StoreInner {
     }
 }
 
-#[derive(Clone)]
-pub struct SessionStore(Arc<RwLock<StoreInner>>);
+#[derive(Default)]
+pub struct MemoryStore(RwLock<StoreInner>);
 
-impl Default for SessionStore {
-    fn default() -> Self {
-        Self::new(DEFAULT_MAX_CAPACITY)
+impl MemoryStore {
+    #[must_use]
+    pub fn new(max_capacity: usize) -> Self {
+        let inner = StoreInner {
+            max_capacity,
+            ..Default::default()
+        };
+        Self(RwLock::new(inner))
+    }
+    fn write(&self) -> RwLockWriteGuard<'_, StoreInner> {
+        self.0.write().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
-impl SessionStore {
-    #[must_use]
-    pub fn new(max_capacity: usize) -> Self {
-        Self(Arc::new(RwLock::new(StoreInner {
-            max_capacity,
-            ..Default::default()
-        })))
-    }
-
-    /// Inserts or replaces a pending join session.
-    ///
-    /// # Errors
-    /// Returns [`StoreError::CapacityExceeded`] if capacity is full and no expired sessions exist.
-    pub async fn upsert(&self, s: PendingJoin, now: Instant) -> Result<SessionToken, StoreError> {
-        let mut inner = self.0.write().await;
+impl Storage for MemoryStore {
+    fn upsert(&self, s: PendingJoin, now: Instant) -> Result<SessionToken, StoreError> {
+        let mut inner = self.write();
         let peer = (s.chat_id, s.user_id);
         if let Some(old) = inner.by_peer.remove(&peer) {
             inner.by_token.remove(&old);
@@ -94,15 +96,101 @@ impl SessionStore {
         inner.by_token.insert(tok.clone(), s);
         Ok(tok)
     }
-
-    pub async fn set_message_id(&self, tok: &SessionToken, msg: MessageId) -> bool {
-        let mut inner = self.0.write().await;
-        inner.by_token.get_mut(tok).is_some_and(|s| {
+    fn set_message_id(&self, tok: &SessionToken, msg: MessageId) -> bool {
+        self.write().by_token.get_mut(tok).is_some_and(|s| {
             s.message_id = Some(msg);
             true
         })
     }
+    fn verify_attempt(
+        &self,
+        tok: &SessionToken,
+        caller: UserId,
+        ans: u8,
+        now: Instant,
+    ) -> AttemptOutcome {
+        use AttemptOutcome::{Approved, DeclinedExhausted, NotFoundOrExpired, WrongUser};
+        let mut inner = self.write();
+        let Some(s) = inner.by_token.get_mut(tok) else {
+            return NotFoundOrExpired;
+        };
+        if now >= s.expires_at {
+            inner.remove_token(tok);
+            return NotFoundOrExpired;
+        }
+        if s.user_id != caller {
+            return WrongUser;
+        }
+        if s.challenge.is_correct(ans) {
+            return AttemptOutcome::from_session(inner.remove_token(tok), Approved);
+        }
+        s.attempts = s.attempts.saturating_add(1);
+        if s.attempts < s.max_attempts {
+            return AttemptOutcome::retry(s.max_attempts - s.attempts);
+        }
+        AttemptOutcome::from_session(inner.remove_token(tok), DeclinedExhausted)
+    }
+    fn remove_by_token(&self, tok: &SessionToken) -> Option<PendingJoin> {
+        self.write().remove_token(tok)
+    }
+    fn remove_by_peer(&self, chat: ChatId, user: UserId) -> Option<PendingJoin> {
+        let mut inner = self.write();
+        let t = inner.by_peer.remove(&(chat, user))?;
+        inner.by_token.remove(&t)
+    }
+    fn reap_expired(&self, now: Instant) -> Vec<PendingJoin> {
+        self.write().reap_expired(now)
+    }
+    fn len(&self) -> usize {
+        let guard = self.0.read().unwrap_or_else(PoisonError::into_inner);
+        guard.by_token.len()
+    }
+}
 
+#[derive(Clone)]
+pub struct SessionStore(Arc<dyn Storage>);
+
+impl Default for SessionStore {
+    fn default() -> Self {
+        Self::new(DEFAULT_MAX_CAPACITY)
+    }
+}
+
+impl SessionStore {
+    #[must_use]
+    pub fn new(max_capacity: usize) -> Self {
+        Self(Arc::new(MemoryStore::new(max_capacity)))
+    }
+    #[must_use]
+    pub fn from_storage(storage: Arc<dyn Storage>) -> Self {
+        Self(storage)
+    }
+    async fn exec<R: Send + 'static>(
+        &self,
+        fb: R,
+        f: impl FnOnce(&dyn Storage) -> R + Send + 'static,
+    ) -> R {
+        if !self.0.is_blocking() {
+            return f(&*self.0);
+        }
+        let st = Arc::clone(&self.0);
+        tokio::task::spawn_blocking(move || f(&*st))
+            .await
+            .unwrap_or_else(|e| {
+                tracing::error!(error = %e, "blocking storage task failed");
+                fb
+            })
+    }
+    /// # Errors
+    /// Returns [`StoreError`] if capacity is full or backend persistence fails.
+    pub async fn upsert(&self, s: PendingJoin, now: Instant) -> Result<SessionToken, StoreError> {
+        let fb = Err(StoreError::Backend("blocking storage task failed".into()));
+        self.exec(fb, move |st| st.upsert(s, now)).await
+    }
+    pub async fn set_message_id(&self, tok: &SessionToken, msg: MessageId) -> bool {
+        let t = tok.clone();
+        self.exec(false, move |st| st.set_message_id(&t, msg)).await
+    }
     pub async fn verify_attempt(
         &self,
         tok: &SessionToken,
@@ -110,50 +198,28 @@ impl SessionStore {
         ans: u8,
         now: Instant,
     ) -> AttemptOutcome {
-        let mut inner = self.0.write().await;
-        let Some(s) = inner.by_token.get(tok) else {
-            return AttemptOutcome::NotFoundOrExpired;
-        };
-        if now >= s.expires_at {
-            inner.remove_token(tok);
-            return AttemptOutcome::NotFoundOrExpired;
-        }
-        if s.user_id != caller {
-            return AttemptOutcome::WrongUser;
-        }
-        if s.challenge.is_correct(ans) {
-            return AttemptOutcome::from_session(inner.remove_token(tok), AttemptOutcome::Approved);
-        }
-        let Some(s) = inner.by_token.get_mut(tok) else {
-            return AttemptOutcome::NotFoundOrExpired;
-        };
-        s.attempts = s.attempts.saturating_add(1);
-        if s.attempts < s.max_attempts {
-            return AttemptOutcome::retry(s.max_attempts - s.attempts);
-        }
-        AttemptOutcome::from_session(inner.remove_token(tok), AttemptOutcome::DeclinedExhausted)
+        let t = tok.clone();
+        self.exec(AttemptOutcome::NotFoundOrExpired, move |st| {
+            st.verify_attempt(&t, caller, ans, now)
+        })
+        .await
     }
-
     pub async fn remove_by_token(&self, tok: &SessionToken) -> Option<PendingJoin> {
-        self.0.write().await.remove_token(tok)
+        let t = tok.clone();
+        self.exec(None, move |st| st.remove_by_token(&t)).await
     }
-
     pub async fn remove_by_peer(&self, chat: ChatId, user: UserId) -> Option<PendingJoin> {
-        let mut inner = self.0.write().await;
-        let t = inner.by_peer.remove(&(chat, user))?;
-        inner.by_token.remove(&t)
+        self.exec(None, move |st| st.remove_by_peer(chat, user))
+            .await
     }
-
     pub async fn reap_expired(&self, now: Instant) -> Vec<PendingJoin> {
-        self.0.write().await.reap_expired(now)
+        self.exec(Vec::new(), move |st| st.reap_expired(now)).await
     }
-
     pub async fn len(&self) -> usize {
-        self.0.read().await.by_token.len()
+        self.exec(0, |st| st.len()).await
     }
-
     pub async fn is_empty(&self) -> bool {
-        self.0.read().await.by_token.is_empty()
+        self.exec(true, |st| st.is_empty()).await
     }
 }
 
@@ -224,6 +290,10 @@ mod tests {
         assert_eq!(err, Err(StoreError::CapacityExceeded));
         assert!(store.remove_by_token(&t6).await.is_some());
         assert!(store.remove_by_token(&t8).await.is_some() && store.is_empty().await);
+        let s9 = SessionStore::from_storage(Arc::new(MemoryStore::new(2)));
+        let msg = StoreError::Backend("io".into()).to_string();
+        assert_eq!(msg, "storage backend error: io");
+        assert!(s9.upsert(session(9, exp), now).await.is_ok() && s9.len().await == 1);
         Ok(())
     }
 }
