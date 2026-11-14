@@ -38,6 +38,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
 dotenvy = "0.15"
+redb = "2.6"
 
 [dev-dependencies]
 wiremock = "0.6"
