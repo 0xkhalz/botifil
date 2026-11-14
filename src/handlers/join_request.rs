@@ -90,8 +90,18 @@ where
         message_id: None,
         expires_at: now + config.challenge_ttl(),
     };
-    if let Err(StoreError::CapacityExceeded) = store.upsert(pending, now).await {
-        tracing::warn!("Session store capacity exceeded; dropping join request");
+    if let Err(err) = store.upsert(pending, now).await {
+        match err {
+            StoreError::CapacityExceeded => {
+                tracing::warn!("Session store capacity exceeded; dropping join request");
+            }
+            StoreError::Backend(reason) => {
+                tracing::warn!(
+                    error = %reason,
+                    "Session store write failed; dropping join request"
+                );
+            }
+        }
         return Ok(SessionOutcome::IdempotentNoOp);
     }
     let res = bot
