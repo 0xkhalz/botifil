@@ -16,9 +16,9 @@
 - **Non-Goals**: Handlers wiring, container packaging.
 - **Verifier Command**: `scripts/verify.sh`
 - **Definition of Done**:
-  - [ ] Files stay <= 300 lines
-  - [ ] Diff stays <= 300 LoC
-  - [ ] Verifier passes cleanly
+  - [x] Files stay <= 300 lines
+  - [x] Diff stays <= 300 LoC
+  - [x] Verifier passes cleanly
 
 ### Task 2: M3-2 Startup Expiry Reconciliation & Dispatcher Wiring
 - **Parent Spec/Issue**: docs/specs/002-persistence-and-admin-controls/spec.md
@@ -31,9 +31,9 @@
 - **Non-Goals**: Containerization, multi-host sync.
 - **Verifier Command**: `scripts/verify.sh`
 - **Definition of Done**:
-  - [ ] Files stay <= 300 lines
-  - [ ] Diff stays <= 300 LoC
-  - [ ] Verifier passes cleanly
+  - [x] Files stay <= 300 lines
+  - [x] Diff stays <= 300 LoC
+  - [x] Verifier passes cleanly
 
 ### Task 3: M4-1 Multi-Stage Static Musl Containerfile
 - **Parent Spec/Issue**: docs/specs/002-persistence-and-admin-controls/spec.md
