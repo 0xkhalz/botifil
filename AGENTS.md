@@ -3,9 +3,9 @@
 Telegram bot that approves/declines group join requests. Rust + teloxide. Agents implement; maintainer reviews and merges.
 
 ## 1. Toolchain & Runtime
-- Rust: 1.99 stable, edition 2024 (`rust-toolchain.toml`).
+- Rust: 1.99 stable, edition 2024 (`rust-toolchain.toml`, `Cargo.toml`).
 - Tooling: managed via `mise install` (`mise.toml`, `CARGO_BUILD_JOBS=2` for constrained local dev).
-- Secrets: set via environment or `.env` (`TELOXIDE_TOKEN`); never commit `.env` or secrets.
+- Secrets: set via environment or `.env` (`.env.example`: `TELOXIDE_TOKEN`, `BOTIFIL_CHALLENGE_TTL_SECS`, `BOTIFIL_MAX_ATTEMPTS`, `BOTIFIL_ALLOWED_CHATS`, `RUST_LOG`); never commit `.env` or secrets.
 
 ## 2. Verification Pipeline
 ```bash
@@ -25,11 +25,9 @@ Telegram bot that approves/declines group join requests. Rust + teloxide. Agents
 - Ambiguous scope or 3 failed verify runs → apply label `status:needs-human` and stop.
 
 ## 4. Architecture Map
-- `src/`: future bot implementation (teloxide dispatcher, filters, handlers).
-- `docs/domain/`: Telegram API domain models and join-request mechanics.
-- `docs/decisions/`: Architecture Decision Records (ADRs).
-- `docs/specs/`: implementation specifications and PRDs.
-- `.agents/rules/`: agent behavior and engineering rules.
-- `.agents/skills/`: task-specific agent workflows.
-- `.github/`: CI workflows and automated checks.
-- `scripts/`: local verification and repository tooling.
+- `src/main.rs`: binary entry (`Bot::throttle`, `getMe` check, `Dispatcher`, 5s reaper, graceful shutdown).
+- `src/lib.rs`, `src/config.rs`, `src/domain.rs`, `src/error.rs`, `src/screening.rs`, `src/store.rs`: config, challenge domain models, error classifier, bio screening, bounded `RwLock` store.
+- `src/handlers/`: `dptree` schema (`mod.rs`), `join_request.rs`, `callback.rs`.
+- `tests/gatekeeper_e2e.rs`: `wiremock` end-to-end join-request and callback suite.
+- `docs/domain/`, `docs/decisions/`, `docs/specs/`: Telegram mechanics, MADR 4 ADRs (`0001`–`0006`), feature specs (`001`, `002`).
+- `.agents/rules/`, `.agents/skills/`, `.github/`, `scripts/`: engineering rules, workflows, CI/rulesets, `verify.sh`.
