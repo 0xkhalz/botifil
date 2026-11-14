@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use teloxide::types::ChatId;
 
@@ -10,6 +11,8 @@ pub const MAX_CHALLENGE_TTL_SECS: u64 = 300;
 pub const DEFAULT_MAX_ATTEMPTS: u8 = 2;
 /// Maximum allowed challenge answer attempts.
 pub const MAX_ALLOWED_ATTEMPTS: u8 = 5;
+/// Default filesystem path for the persistent `redb` session database.
+pub const DEFAULT_DB_PATH: &str = "./data/botifil.redb";
 
 /// Configuration errors for bot initialization.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -24,6 +27,8 @@ pub enum ConfigError {
     InvalidMaxAttempts,
     #[error("BOTIFIL_ALLOWED_CHATS must be a comma-separated list of integer chat IDs")]
     InvalidAllowedChats,
+    #[error("BOTIFIL_DB_PATH cannot be empty or whitespace")]
+    InvalidDbPath,
 }
 
 /// Runtime bot configuration holding the Telegram bot token and policy settings.
@@ -33,6 +38,7 @@ pub struct Config {
     challenge_ttl_secs: u64,
     max_attempts: u8,
     allowed_chats: Vec<ChatId>,
+    db_path: PathBuf,
 }
 
 fn parse_bounded<T: std::str::FromStr + PartialOrd>(
@@ -62,6 +68,14 @@ fn parse_chats(raw: Option<&str>) -> Result<Vec<ChatId>, ConfigError> {
     }
 }
 
+fn parse_db_path(raw: Option<&str>) -> Result<PathBuf, ConfigError> {
+    match raw.map(str::trim) {
+        None => Ok(PathBuf::from(DEFAULT_DB_PATH)),
+        Some("") => Err(ConfigError::InvalidDbPath),
+        Some(path) => Ok(PathBuf::from(path)),
+    }
+}
+
 impl Config {
     /// Loads configuration from environment variables and `.env` file.
     ///
@@ -76,6 +90,7 @@ impl Config {
             v("BOTIFIL_CHALLENGE_TTL_SECS").as_deref(),
             v("BOTIFIL_MAX_ATTEMPTS").as_deref(),
             v("BOTIFIL_ALLOWED_CHATS").as_deref(),
+            v("BOTIFIL_DB_PATH").as_deref(),
         )
     }
 
@@ -86,7 +101,7 @@ impl Config {
     /// Returns [`ConfigError::MissingToken`] if the token is `None`,
     /// or [`ConfigError::EmptyToken`] if it is empty or whitespace.
     pub fn from_token(token: Option<String>) -> Result<Self, ConfigError> {
-        Self::from_env_vars(token, None, None, None)
+        Self::from_env_vars(token, None, None, None, None)
     }
 
     /// Creates a configuration from raw environment variable values.
@@ -99,6 +114,7 @@ impl Config {
         ttl: Option<&str>,
         max_attempts: Option<&str>,
         allowed_chats: Option<&str>,
+        db_path: Option<&str>,
     ) -> Result<Self, ConfigError> {
         let telegram_token = match token {
             None => return Err(ConfigError::MissingToken),
@@ -119,6 +135,7 @@ impl Config {
                 ConfigError::InvalidMaxAttempts,
             )?,
             allowed_chats: parse_chats(allowed_chats)?,
+            db_path: parse_db_path(db_path)?,
         })
     }
 
@@ -140,6 +157,12 @@ impl Config {
         self.max_attempts
     }
 
+    /// Returns the filesystem path to the persistent session database.
+    #[must_use]
+    pub fn db_path(&self) -> &Path {
+        &self.db_path
+    }
+
     /// Checks if a chat ID is allowed by configuration.
     #[must_use]
     pub fn is_chat_allowed(&self, chat_id: ChatId) -> bool {
@@ -154,6 +177,7 @@ impl fmt::Debug for Config {
             .field("challenge_ttl_secs", &self.challenge_ttl_secs)
             .field("max_attempts", &self.max_attempts)
             .field("allowed_chats_count", &self.allowed_chats.len())
+            .field("db_path", &"[REDACTED]")
             .finish()
     }
 }
@@ -187,25 +211,27 @@ mod tests {
         assert_eq!(cfg.challenge_ttl().as_secs(), DEFAULT_CHALLENGE_TTL_SECS);
         assert_eq!(cfg.max_attempts(), DEFAULT_MAX_ATTEMPTS);
         assert!(cfg.is_chat_allowed(ChatId(123)));
+        assert_eq!(cfg.db_path(), std::path::Path::new(DEFAULT_DB_PATH));
         Ok(())
     }
 
     #[test]
     fn custom_valid_policy_and_is_chat_allowed() -> Result<(), ConfigError> {
-        let chats = Some("-1001234567890, -1009876543210,");
-        let cfg = Config::from_env_vars(Some("tok".into()), Some("60"), Some("3"), chats)?;
+        let (c, db) = (Some("-1001234567890, -1009876543210,"), "/tmp/s.redb");
+        let cfg = Config::from_env_vars(Some("tok".into()), Some("60"), Some("3"), c, Some(db))?;
         assert_eq!(cfg.challenge_ttl().as_secs(), 60);
         assert_eq!(cfg.max_attempts(), 3);
         assert!(cfg.is_chat_allowed(ChatId(-1_001_234_567_890)));
         assert!(cfg.is_chat_allowed(ChatId(-1_009_876_543_210)));
         assert!(!cfg.is_chat_allowed(ChatId(999)));
+        assert_eq!(cfg.db_path(), Path::new(db));
         Ok(())
     }
 
     #[test]
     fn invalid_ttl_returns_error() {
         for v in ["0", "301", "abc"] {
-            let res = Config::from_env_vars(Some("t".into()), Some(v), None, None);
+            let res = Config::from_env_vars(Some("t".into()), Some(v), None, None, None);
             assert_eq!(res, Err(ConfigError::InvalidChallengeTtl));
         }
     }
@@ -213,7 +239,7 @@ mod tests {
     #[test]
     fn invalid_max_attempts_returns_error() {
         for v in ["0", "6", "abc"] {
-            let res = Config::from_env_vars(Some("t".into()), None, Some(v), None);
+            let res = Config::from_env_vars(Some("t".into()), None, Some(v), None, None);
             assert_eq!(res, Err(ConfigError::InvalidMaxAttempts));
         }
     }
@@ -221,18 +247,27 @@ mod tests {
     #[test]
     fn invalid_allowed_chats_returns_error() {
         for v in ["abc", ","] {
-            let res = Config::from_env_vars(Some("t".into()), None, None, Some(v));
+            let res = Config::from_env_vars(Some("t".into()), None, None, Some(v), None);
             assert_eq!(res, Err(ConfigError::InvalidAllowedChats));
         }
     }
 
     #[test]
-    fn debug_format_redacts_token() -> Result<(), ConfigError> {
-        let token = "secret_telegram_token_xyz".to_string();
-        let tok = Some(token.clone());
-        let cfg = Config::from_env_vars(tok, Some("120"), Some("4"), Some("-1001"))?;
+    fn empty_or_whitespace_db_path_returns_error() {
+        for v in ["", " \t\n "] {
+            let res = Config::from_env_vars(Some("t".into()), None, None, None, Some(v));
+            assert_eq!(res, Err(ConfigError::InvalidDbPath));
+        }
+    }
+
+    #[test]
+    fn debug_format_redacts_token_and_db_path() -> Result<(), ConfigError> {
+        let (t, db) = ("secret_token_xyz", "/tmp/secret/db.redb");
+        let cfg =
+            Config::from_env_vars(Some(t.into()), Some("120"), Some("4"), Some("-1"), Some(db))?;
         let dbg = format!("{cfg:?}");
-        assert!(dbg.contains("[REDACTED]") && !dbg.contains(&token) && !dbg.contains("-1001"));
+        assert!(dbg.contains("[REDACTED]") && !dbg.contains(t) && !dbg.contains("-1"));
+        assert!(!dbg.contains(db) && dbg.contains("db_path: \"[REDACTED]\""));
         assert!(dbg.contains("allowed_chats_count: 1") && dbg.contains("challenge_ttl_secs: 120"));
         assert!(dbg.contains("max_attempts: 4"));
         Ok(())
