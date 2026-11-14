@@ -1,11 +1,25 @@
 mod memory;
+mod redb;
 
+use std::path::Path;
 use teloxide::types::{ChatId, MessageId, UserId};
 use tokio::time::Instant;
 
 use crate::domain::{PendingJoin, SessionToken};
 
 pub use memory::{AttemptOutcome, DEFAULT_MAX_CAPACITY, MemoryStore, SessionStore, StoreError};
+pub use redb::RedbSessionStore;
+
+impl SessionStore {
+    /// Opens a persistent `redb` session store at `path`.
+    ///
+    /// # Errors
+    /// Returns [`StoreError::Backend`] if opening or initializing the database fails.
+    pub fn open_redb(path: impl AsRef<Path>, max_capacity: usize) -> Result<Self, StoreError> {
+        let store = RedbSessionStore::open(path, max_capacity)?;
+        Ok(Self::from_storage(std::sync::Arc::new(store)))
+    }
+}
 
 pub trait Storage: Send + Sync {
     fn is_blocking(&self) -> bool {
