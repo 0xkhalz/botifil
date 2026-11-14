@@ -10,6 +10,7 @@ use crate::{
     config::Config,
     domain::{CallbackAction, Challenge, DomainError, PendingJoin, SessionOutcome, SessionToken},
     error::{BotErrorAction, classify_request_error},
+    screening::{ScreeningVerdict, evaluate_applicant},
     store::{SessionStore, StoreError},
 };
 
@@ -44,6 +45,31 @@ where
     if !config.is_chat_allowed(req.chat.id) {
         return Ok(SessionOutcome::IdempotentNoOp);
     }
+    let is_premium = match evaluate_applicant(req.bio.as_deref(), req.from.is_premium) {
+        ScreeningVerdict::Decline { reason } => {
+            return match bot
+                .decline_chat_join_request(req.chat.id, req.from.id)
+                .await
+            {
+                Ok(_) => {
+                    tracing::info!(
+                        outcome = ?SessionOutcome::DeclinedScreened,
+                        ?reason,
+                        "Declined join request via bio screening"
+                    );
+                    Ok(SessionOutcome::DeclinedScreened)
+                }
+                Err(err) => match classify_request_error(&err) {
+                    BotErrorAction::IdempotentNoOp => Ok(SessionOutcome::IdempotentNoOp),
+                    BotErrorAction::IdempotentSuccess => {
+                        Ok(SessionOutcome::IdempotentAlreadyMember)
+                    }
+                    _ => Err(err),
+                },
+            };
+        }
+        ScreeningVerdict::Allow { is_premium } => is_premium,
+    };
     let (token, challenge, now) = (
         SessionToken::generate(),
         Challenge::generate(),
@@ -75,8 +101,9 @@ where
     match res {
         Ok(msg) => {
             store.set_message_id(&token, msg.id).await;
-            tracing::info!(outcome = ?SessionOutcome::ChallengeSent, "Dispatched join verification challenge");
-            Ok(SessionOutcome::ChallengeSent)
+            let out = SessionOutcome::ChallengeSent;
+            tracing::info!(outcome = ?out, is_premium, "Dispatched join verification challenge");
+            Ok(out)
         }
         Err(err) => {
             store.remove_by_token(&token).await;

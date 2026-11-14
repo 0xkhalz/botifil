@@ -4,7 +4,25 @@
 
 Telegram bot that approves or declines join requests for groups (Rust + teloxide).
 
-**Status:** bootstrapping — architecture and agent contracts in progress.
+**Status:** M2 Gatekeeper implemented.
+
+## Configuration
+
+Configure runtime settings via environment variables or a `.env` file:
+
+- `TELOXIDE_TOKEN` — Telegram bot token from @BotFather (required).
+- `BOTIFIL_CHALLENGE_TTL_SECS` — Challenge timeout in seconds (1..=300, default: 300).
+- `BOTIFIL_MAX_ATTEMPTS` — Max verification attempts before decline (1..=5, default: 2).
+- `BOTIFIL_ALLOWED_CHATS` — Comma-separated list of allowed chat IDs (empty allows all).
+- `RUST_LOG` — Tracing log filter (e.g. `info`, default: `info`).
+
+## Verification
+
+Run local verification before opening or updating pull requests:
+
+```bash
+./scripts/verify.sh
+```
 
 ## How Development Works
 
