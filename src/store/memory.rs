@@ -61,17 +61,21 @@ impl StoreInner {
     }
 }
 
-#[derive(Default)]
 pub struct MemoryStore(RwLock<StoreInner>);
+
+impl Default for MemoryStore {
+    fn default() -> Self {
+        Self::new(DEFAULT_MAX_CAPACITY)
+    }
+}
 
 impl MemoryStore {
     #[must_use]
     pub fn new(max_capacity: usize) -> Self {
-        let inner = StoreInner {
+        Self(RwLock::new(StoreInner {
             max_capacity,
             ..Default::default()
-        };
-        Self(RwLock::new(inner))
+        }))
     }
     fn write(&self) -> RwLockWriteGuard<'_, StoreInner> {
         self.0.write().unwrap_or_else(PoisonError::into_inner)
@@ -245,19 +249,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_store() -> Result<(), StoreError> {
-        let store = SessionStore::new(2);
-        let now = Instant::now();
+        let (store, now) = (SessionStore::new(2), Instant::now());
         let (past, exp) = (now - Duration::from_secs(10), now + Duration::from_secs(60));
-
         let t1 = store.upsert(session(1, exp), now).await?;
         let t2 = store.upsert(session(1, exp), now).await?;
-        assert_ne!(t1, t2);
-        assert_eq!(store.len().await, 1);
-        assert!(store.remove_by_token(&t1).await.is_none());
+        assert!(t1 != t2 && store.len().await == 1 && store.remove_by_token(&t1).await.is_none());
         assert!(store.set_message_id(&t2, MessageId(10)).await);
         assert!(store.remove_by_peer(ChatId(-1), UserId(1)).await.is_some());
         assert!(store.is_empty().await);
-
         let mut s = session(2, exp);
         let t = store.upsert(s.clone(), now).await?;
         let (ans, u2) = (s.challenge.correct_answer(), UserId(2));
@@ -290,9 +289,9 @@ mod tests {
         assert_eq!(err, Err(StoreError::CapacityExceeded));
         assert!(store.remove_by_token(&t6).await.is_some());
         assert!(store.remove_by_token(&t8).await.is_some() && store.is_empty().await);
-        let s9 = SessionStore::from_storage(Arc::new(MemoryStore::new(2)));
-        let msg = StoreError::Backend("io".into()).to_string();
-        assert_eq!(msg, "storage backend error: io");
+        let e0 = MemoryStore::new(0).upsert(session(9, exp), now);
+        assert_eq!(e0, Err(StoreError::CapacityExceeded));
+        let s9 = SessionStore::from_storage(Arc::new(MemoryStore::default()));
         assert!(s9.upsert(session(9, exp), now).await.is_ok() && s9.len().await == 1);
         Ok(())
     }
