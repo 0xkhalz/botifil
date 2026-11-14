@@ -95,6 +95,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dotenvy",
+ "redb",
  "teloxide",
  "thiserror",
  "tokio",
@@ -1226,6 +1227,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "897fecc9fac6febd4408f9e935e86df739b0023b625e610e0357535b9c8adad0"
 dependencies = [
  "erasable",
+]
+
+[[package]]
+name = "redb"
+version = "2.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d64e07496d293ad8ed401c4d193d5b9f0f97671fbd5bf21d691a0c7d2c53dc8"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
