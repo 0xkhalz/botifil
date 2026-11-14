@@ -1,6 +1,6 @@
 # Specification: Persistence and Admin Controls
 
-- Status: draft
+- Status: approved
 - Date: 2026-11-14
 - Milestone: M3 & M4
 
