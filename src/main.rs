@@ -1,4 +1,4 @@
-mod config;
+use botifil::config;
 
 use teloxide::adaptors::throttle::Limits;
 use teloxide::prelude::*;
