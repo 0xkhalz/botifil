@@ -159,6 +159,19 @@ impl Storage for RedbSessionStore {
             Ok((true, true))
         })
     }
+    fn get_by_token(&self, tok: &SessionToken, now: Instant) -> Option<PendingJoin> {
+        let (key, now_ms) = (tok.as_str(), self.to_ms(now));
+        self.tx_or(None, |tbl| {
+            let Some(buf) = tbl.get(key).map_err(err)?.map(|g| g.value()) else {
+                return Ok((false, None));
+            };
+            if now_ms >= u64::from_le_bytes(le(&buf, 36)) {
+                tbl.remove(key).map_err(err)?;
+                return Ok((true, None));
+            }
+            Ok((false, Some(self.decode(key, &buf)?)))
+        })
+    }
     fn verify_attempt(
         &self,
         tok: &SessionToken,
@@ -222,24 +235,12 @@ impl Storage for RedbSessionStore {
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::session as sess;
     use super::*;
     struct Tmp(std::path::PathBuf);
     impl Drop for Tmp {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-    fn sess(chat: i64, user: u64, expires_at: Instant) -> PendingJoin {
-        PendingJoin {
-            token: SessionToken::generate(),
-            chat_id: ChatId(chat),
-            user_id: UserId(user),
-            user_chat_id: ChatId(1),
-            challenge: Challenge::generate(),
-            attempts: 0,
-            max_attempts: 2,
-            message_id: None,
-            expires_at,
         }
     }
     #[tokio::test]
@@ -259,6 +260,7 @@ mod tests {
         let (a2, t2) = (s2.challenge.correct_answer(), st.upsert(s2, now)?);
         let v = |t: &SessionToken, u, a| st.verify_attempt(t, UserId(u), a, now);
         assert!(v(&t2, 99, a2) == WrongUser && v(&t2, 2, a2 + 1) == Retry { remaining: 1 });
+        assert!(st.get_by_token(&t2, now).is_some_and(|s| s.attempts == 1));
         assert!(matches!(v(&t2, 2, a2 + 1), DeclinedExhausted(s) if s.attempts == 2));
         let (al, live) = (s_live.challenge.correct_answer(), st.upsert(s_live, now)?);
         let dead = up(-400, 4, past)?;
@@ -266,6 +268,8 @@ mod tests {
         let fill = up(-400, 4, exp)?;
         assert_eq!(up(-500, 5, exp), Err(StoreError::CapacityExceeded));
         assert!(st.remove_by_token(&fill).is_some());
+        let dead2 = up(-700, 7, past)?;
+        assert!(st.get_by_token(&dead2, now).is_none() && st.len() == 1);
         assert_eq!(v(&up(-700, 7, past)?, 7, 1), NotFoundOrExpired);
         assert!(up(-600, 6, past).is_ok() && up(-500, 5, exp).is_ok());
         assert!(st.set_message_id(&live, MessageId(55)));
@@ -273,6 +277,11 @@ mod tests {
         drop(st);
         let r2 = crate::store::SessionStore::open_redb(&p, 2)?;
         assert_eq!(r2.len().await, 2);
+        assert!(
+            r2.get_by_token(&live, now)
+                .await
+                .is_some_and(|o| o.attempts == 1)
+        );
         let a = r2.verify_attempt(&live, UserId(max), al, now).await;
         assert!(matches!(a, Approved(o) if o.attempts == 1 && o.message_id == Some(MessageId(55))));
         drop(r2);
