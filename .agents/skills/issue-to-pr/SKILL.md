@@ -60,7 +60,7 @@ Activated when assigned a GitHub issue to implement.
      ```bash
      git push -u origin <type>/<n>-<slug>
      ```
-   - Ensure one logical scope per PR and open PR using [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md) with a Conventional Commit `--title` and `--body-file <tmpfile>` containing `Fixes #<n>` (repeat keyword for multiple: `Fixes #1, Fixes #2`), diff confirmation (`<= 300` LoC), and `./scripts/verify.sh` tail:
+   - Ensure one logical scope per PR and open PR using [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md) with a Conventional Commit `--title` and `--body-file <tmpfile>` containing `Fixes #<n>` (repeat keyword for multiple: `Fixes #1, Fixes #2`), diff summary (`git diff --stat origin/main`), and `./scripts/verify.sh` tail:
      ```bash
      gh pr create --base main --title "<type>: <concise summary>" --body-file <tmpfile>
      ```

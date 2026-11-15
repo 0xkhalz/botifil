@@ -22,6 +22,6 @@ Workflow for authoring and reviewing feature specifications in `botifil`.
 5. **Decompose Tasks**: In `tasks.md`, define granular tasks where each task:
    - Maps 1:1 to `.github/ISSUE_TEMPLATE/task.yml`.
    - Specifies an explicit owned-files list, slice boundary, non-goals, and verifier command.
-   - Strictly obeys the <= 300 LoC PR diff limit.
+   - Represents one small, focused logical deliverable (no arbitrary LoC limit).
 6. **Verify and Submit**: Run `scripts/verify.sh` to validate formatting and links. Open a PR titled `docs(spec): add NNN-slug specification`.
 7. **Lifecycle Progression**: Merging the spec PR marks the specification `approved` and authorizes creating task issues.
