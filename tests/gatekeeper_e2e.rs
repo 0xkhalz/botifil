@@ -63,6 +63,14 @@ fn idx(routes: &[String], target: &str) -> Res<usize> {
         .position(|r| r.ends_with(target))
         .ok_or_else(|| "missing route".into())
 }
+async fn last_body(server: &MockServer, target: &str) -> Res<String> {
+    let reqs = server.received_requests().await.ok_or("no requests")?;
+    let req = reqs
+        .iter()
+        .rfind(|r| r.url.path().ends_with(target))
+        .ok_or("missing route")?;
+    Ok(String::from_utf8_lossy(&req.body).into_owned())
+}
 
 #[rustfmt::skip]
 async fn choices(server: &MockServer) -> Res<(String, String)> {
@@ -95,7 +103,7 @@ async fn e2e_join_request_correct_answer_approves_and_edits_dm() -> Res {
     );
 
     let routes = paths(&server).await?;
-    assert!(idx(&routes, "/EditMessageText")? < idx(&routes, "/ApproveChatJoinRequest")?);
+    assert!(idx(&routes, "/ApproveChatJoinRequest")? < idx(&routes, "/EditMessageText")?);
     Ok(())
 }
 
@@ -137,5 +145,67 @@ async fn e2e_approve_hide_requester_missing_is_idempotent() -> Res {
         handle_callback_query(bot, cb(correct), store).await?,
         SessionOutcome::IdempotentNoOp
     );
+    let ans = last_body(&server, "/AnswerCallbackQuery").await?;
+    let edit = last_body(&server, "/EditMessageText").await?;
+    assert!(ans.contains("\"show_alert\":true"));
+    assert!(ans.contains("no longer pending") && ans.contains("admin"));
+    assert!(edit.contains("no longer pending") && edit.contains("admin"));
+    assert!(!ans.contains("Verification passed") && !ans.contains("approved"));
+    assert!(!edit.contains("Verification passed") && !edit.contains("approved"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn e2e_decline_hide_requester_missing_is_idempotent() -> Res {
+    let err =
+        r#"{"ok":false,"error_code":400,"description":"Bad Request: HIDE_REQUESTER_MISSING"}"#;
+    let (server, bot, store, _) = start(Some(("DeclineChatJoinRequest", 400, err))).await?;
+    let (_, wrong) = choices(&server).await?;
+    let retry = handle_callback_query(bot.clone(), cb(wrong.clone()), store.clone()).await?;
+    assert_eq!(retry, SessionOutcome::RetryAllowed { remaining: 1 });
+    assert_eq!(
+        handle_callback_query(bot, cb(wrong), store).await?,
+        SessionOutcome::IdempotentNoOp
+    );
+    let ans = last_body(&server, "/AnswerCallbackQuery").await?;
+    let edit = last_body(&server, "/EditMessageText").await?;
+    assert!(ans.contains("\"show_alert\":true"));
+    assert!(ans.contains("no longer pending") && ans.contains("admin"));
+    assert!(edit.contains("no longer pending") && edit.contains("admin"));
+    assert!(!ans.contains("Verification failed") && !ans.contains("declined"));
+    assert!(!edit.contains("Verification failed") && !edit.contains("declined"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn e2e_approve_already_participant_is_idempotent() -> Res {
+    let err =
+        r#"{"ok":false,"error_code":400,"description":"Bad Request: USER_ALREADY_PARTICIPANT"}"#;
+    let (server, bot, store, _) = start(Some(("ApproveChatJoinRequest", 400, err))).await?;
+    let (correct, _) = choices(&server).await?;
+    assert_eq!(
+        handle_callback_query(bot, cb(correct), store).await?,
+        SessionOutcome::IdempotentAlreadyMember
+    );
+    let ans = last_body(&server, "/AnswerCallbackQuery").await?;
+    let edit = last_body(&server, "/EditMessageText").await?;
+    assert!(!ans.contains("\"show_alert\":true") && ans.contains("already a member"));
+    assert!(edit.contains("already a member"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn e2e_approve_admin_required_returns_err_with_alert_and_no_edit() -> Res {
+    let err = r#"{"ok":false,"error_code":400,"description":"Bad Request: CHAT_ADMIN_REQUIRED"}"#;
+    let (server, bot, store, _) = start(Some(("ApproveChatJoinRequest", 400, err))).await?;
+    let (correct, _) = choices(&server).await?;
+    assert!(
+        handle_callback_query(bot, cb(correct), store)
+            .await
+            .is_err()
+    );
+    let ans = last_body(&server, "/AnswerCallbackQuery").await?;
+    assert!(ans.contains("\"show_alert\":true") && ans.contains("Unable to process"));
+    assert!(!has(&paths(&server).await?, "/EditMessageText"));
     Ok(())
 }

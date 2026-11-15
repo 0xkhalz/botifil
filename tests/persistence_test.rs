@@ -103,7 +103,7 @@ async fn active_challenge_survives_reopen_and_approves() -> Res {
     assert_eq!(out, SessionOutcome::Approved);
     assert!(st.is_empty().await);
     let r = paths(&srv).await?;
-    assert!(idx(&r, "/EditMessageText")? < idx(&r, "/ApproveChatJoinRequest")?);
+    assert!(idx(&r, "/ApproveChatJoinRequest")? < idx(&r, "/EditMessageText")?);
     Ok(())
 }
 
