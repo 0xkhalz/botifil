@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Verification</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  --bg: var(--tg-theme-bg-color, #191724);
+  --surface: var(--tg-theme-secondary-bg-color, #1f1d2e);
+  --overlay: #26233a;
+  --text: var(--tg-theme-text-color, #e0def4);
+  --muted: var(--tg-theme-hint-color, #908caa);
+  --iris: var(--tg-theme-button-color, #c4a7e7);
+  --foam: #9ccfd8;
+  --love: var(--tg-theme-destructive-text-color, #eb6f92);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.card {
+  width: 100%; max-width: 380px; background: var(--surface);
+  border: 1px solid var(--overlay); border-radius: 16px;
+  padding: 24px 20px; text-align: center;
+}
+.title { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.question { margin: 14px 0 18px; font-size: 28px; font-weight: 700; color: var(--text); }
+.bar-track {
+  width: 100%; height: 8px; background: var(--overlay);
+  border-radius: 999px; overflow: hidden; margin-bottom: 8px;
+}
+.bar-fill {
+  width: 100%; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--iris), var(--foam));
+  transition: width 0.25s linear, background 0.25s ease;
+}
+.bar-fill.urgent { background: var(--love); }
+.meta {
+  display: flex; justify-content: space-between;
+  font-size: 13px; color: var(--muted); margin-bottom: 20px;
+}
+.choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.choice {
+  padding: 16px 8px; font-size: 22px; font-weight: 700; color: var(--text);
+  background: var(--overlay); border: 2px solid transparent; border-radius: 12px;
+  cursor: pointer; transition: transform 0.12s ease, border-color 0.15s ease;
+}
+.choice:hover:not(:disabled) { border-color: var(--iris); }
+.choice:active:not(:disabled) { transform: scale(0.96); }
+.choice:disabled { opacity: 0.5; cursor: not-allowed; }
+.status { margin-top: 16px; min-height: 22px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.status.ok { color: var(--foam); }
+.status.err { color: var(--love); }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.shake { animation: shake 0.28s ease; }
+</style>
+</head>
+<body>
+<main class="card" id="card">
+  <div class="title">Human Verification</div>
+  <div class="question" id="question">Loading challenge...</div>
+  <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+  <div class="meta">
+    <span id="attempts">Attempts left: -</span>
+    <span id="timer">--s</span>
+  </div>
+  <div class="choices" id="choices"></div>
+  <div class="status" id="status"></div>
+</main>
+<script>
+(() => {
+  const tg = window.Telegram?.WebApp || { ready() {}, expand() {}, close() {}, initData: "" };
+  tg.ready?.();
+  tg.expand?.();
+  const cardEl = document.getElementById("card");
+  const questionEl = document.getElementById("question");
+  const barEl = document.getElementById("bar");
+  const attemptsEl = document.getElementById("attempts");
+  const timerEl = document.getElementById("timer");
+  const choicesEl = document.getElementById("choices");
+  const statusEl = document.getElementById("status");
+  const token = new URLSearchParams(window.location.search).get("token");
+  let timerId = null;
+
+  const setStatus = (msg, cls) => { statusEl.textContent = msg; statusEl.className = cls ? "status " + cls : "status"; };
+  const setDisabled = (disabled) => { for (const btn of choicesEl.querySelectorAll("button")) btn.disabled = disabled; };
+  const stopTimer = () => { if (timerId !== null) { clearInterval(timerId); timerId = null; } };
+  const shake = () => { cardEl.classList.remove("shake"); void cardEl.offsetWidth; cardEl.classList.add("shake"); };
+
+  function startCountdown(remainingSecs) {
+    stopTimer();
+    const total = Math.max(1, Number(remainingSecs) || 1);
+    const deadline = Date.now() + total * 1000;
+    const tick = () => {
+      const leftMs = Math.max(0, deadline - Date.now());
+      const pct = Math.max(0, Math.min(100, (leftMs / (total * 1000)) * 100));
+      barEl.style.width = pct.toFixed(1) + "%";
+      barEl.classList.toggle("urgent", pct <= 25);
+      timerEl.textContent = Math.ceil(leftMs / 1000) + "s";
+      if (leftMs <= 0) {
+        stopTimer();
+        setDisabled(true);
+        setStatus("Verification expired.", "err");
+        tg.close?.();
+      }
+    };
+    tick();
+    timerId = setInterval(tick, 250);
+  }
+
+  async function submitAnswer(answer) {
+    setDisabled(true);
+    setStatus("Verifying...", "");
+    try {
+      const body = "token=" + encodeURIComponent(token)
+        + "&answer=" + encodeURIComponent(String(answer))
+        + "&init_data=" + encodeURIComponent(tg.initData || "");
+      const res = await fetch("./api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.status === "approved") {
+        stopTimer();
+        setStatus("Approved! Returning to chat...", "ok");
+        tg.HapticFeedback?.notificationOccurred("success");
+        setTimeout(() => tg.close?.(), 600);
+        return;
+      }
+      if (data?.status === "retry") {
+        attemptsEl.textContent = "Attempts left: " + data.remaining;
+        setStatus("Incorrect answer. Try again.", "err");
+        tg.HapticFeedback?.notificationOccurred("error");
+        shake();
+        setDisabled(false);
+        return;
+      }
+      if (data?.status === "declined" || data?.status === "expired" || res.status === 404) {
+        stopTimer();
+        const expired = data?.status === "expired" || res.status === 404;
+        setStatus(expired ? "Verification expired." : "Verification declined.", "err");
+        tg.HapticFeedback?.notificationOccurred("error");
+        tg.close?.();
+        return;
+      }
+      tg.HapticFeedback?.notificationOccurred("error");
+      if (res.status === 403) {
+        stopTimer();
+        setStatus(data?.error === "wrong_user"
+          ? "Session belongs to another user."
+          : "Session expired or invalid Telegram auth. Reopen from the bot DM.", "err");
+        return;
+      }
+      const msg = res.status === 408 ? "Request timed out. Try again."
+        : res.status >= 500 ? "Server error. Try again." : "Verification failed.";
+      setStatus(msg, "err");
+      if (res.status === 408 || res.status >= 500) setDisabled(false);
+    } catch {
+      setStatus("Network error. Try again.", "err");
+      setDisabled(false);
+    }
+  }
+
+  async function loadChallenge() {
+    if (!token) {
+      questionEl.textContent = "Missing token";
+      setStatus("Open this link from the bot message.", "err");
+      return;
+    }
+    try {
+      const res = await fetch("./api/challenge?token=" + encodeURIComponent(token));
+      if (!res.ok) {
+        questionEl.textContent = "Session unavailable";
+        setStatus(res.status === 404 ? "Challenge expired or already resolved." : "Failed to load challenge.", "err");
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      if (!data || !Array.isArray(data.choices)) {
+        questionEl.textContent = "Session unavailable";
+        setStatus("Failed to load challenge.", "err");
+        return;
+      }
+      questionEl.textContent = "What is " + data.left + " + " + data.right + "?";
+      attemptsEl.textContent = "Attempts left: " + data.attempts_left;
+      choicesEl.textContent = "";
+      for (const choice of data.choices) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice";
+        btn.textContent = String(choice);
+        btn.addEventListener("click", () => submitAnswer(choice));
+        choicesEl.appendChild(btn);
+      }
+      startCountdown(data.remaining_secs);
+    } catch {
+      questionEl.textContent = "Connection error";
+      setStatus("Could not reach verification server.", "err");
+    }
+  }
+
+  loadChallenge();
+})();
+</script>
+</body>
+</html>
