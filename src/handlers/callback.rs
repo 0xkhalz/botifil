@@ -2,7 +2,7 @@ use teloxide::{
     RequestError,
     payloads::AnswerCallbackQuerySetters,
     requests::Requester,
-    types::{CallbackQuery, CallbackQueryId, True},
+    types::{CallbackQuery, CallbackQueryId},
 };
 
 use crate::{
@@ -10,20 +10,6 @@ use crate::{
     error::{BotErrorAction, classify_request_error},
     store::{AttemptOutcome, SessionStore},
 };
-
-fn resolve_with_idempotency(
-    res: Result<True, RequestError>,
-    default_outcome: SessionOutcome,
-) -> Result<SessionOutcome, RequestError> {
-    match res {
-        Ok(_) => Ok(default_outcome),
-        Err(err) => match classify_request_error(&err) {
-            BotErrorAction::IdempotentNoOp => Ok(SessionOutcome::IdempotentNoOp),
-            BotErrorAction::IdempotentSuccess => Ok(SessionOutcome::IdempotentAlreadyMember),
-            _ => Err(err),
-        },
-    }
-}
 
 async fn alert<B: Requester>(bot: &B, id: CallbackQueryId, text: impl Into<String>) {
     let _ = bot
@@ -33,29 +19,91 @@ async fn alert<B: Requester>(bot: &B, id: CallbackQueryId, text: impl Into<Strin
         .await;
 }
 
+async fn toast<B: Requester>(bot: &B, id: CallbackQueryId, text: impl Into<String>) {
+    let _ = bot.answer_callback_query(id).text(text).await;
+}
+
+async fn edit_dm<B: Requester>(bot: &B, s: &PendingJoin, text: impl Into<String>) {
+    if let Some(m) = s.message_id {
+        let _ = bot.edit_message_text(s.user_chat_id, m, text).await;
+    }
+}
+
 async fn finish<B: Requester<Err = RequestError>>(
     bot: &B,
     id: CallbackQueryId,
     s: PendingJoin,
     pass: bool,
 ) -> Result<SessionOutcome, RequestError> {
-    let (toast, msg, out) = if pass {
-        let t = "Verification passed. Your join request has been approved.";
-        ("Verification passed!", t, SessionOutcome::Approved)
-    } else {
-        let t = "Verification failed. Your join request has been declined.";
-        ("Verification failed.", t, SessionOutcome::DeclinedExhausted)
-    };
-    let _ = bot.answer_callback_query(id).text(toast).await;
-    if let Some(m) = s.message_id {
-        let _ = bot.edit_message_text(s.user_chat_id, m, msg).await;
-    }
     let res = if pass {
         bot.approve_chat_join_request(s.chat_id, s.user_id).await
     } else {
         bot.decline_chat_join_request(s.chat_id, s.user_id).await
     };
-    resolve_with_idempotency(res, out)
+    match res {
+        Ok(_) => {
+            let (cb_text, dm_text, out) = if pass {
+                (
+                    "Verification passed!",
+                    "Verification passed. Your join request has been approved.",
+                    SessionOutcome::Approved,
+                )
+            } else {
+                (
+                    "Verification failed.",
+                    "Verification failed. Your join request has been declined.",
+                    SessionOutcome::DeclinedExhausted,
+                )
+            };
+            toast(bot, id, cb_text).await;
+            edit_dm(bot, &s, dm_text).await;
+            Ok(out)
+        }
+        Err(err) => match classify_request_error(&err) {
+            BotErrorAction::IdempotentNoOp => {
+                alert(
+                    bot,
+                    id,
+                    "Your join request is no longer pending (it was dismissed or already handled by an admin).",
+                )
+                .await;
+                edit_dm(
+                    bot,
+                    &s,
+                    "This join request is no longer pending (it was already dismissed or handled by an admin).",
+                )
+                .await;
+                tracing::info!(
+                    outcome = ?SessionOutcome::IdempotentNoOp,
+                    "Join request no longer pending during resolution"
+                );
+                Ok(SessionOutcome::IdempotentNoOp)
+            }
+            BotErrorAction::IdempotentSuccess => {
+                toast(bot, id, "You are already a member of this chat.").await;
+                edit_dm(
+                    bot,
+                    &s,
+                    "Your join request was already approved; you are already a member of this chat.",
+                )
+                .await;
+                tracing::info!(
+                    outcome = ?SessionOutcome::IdempotentAlreadyMember,
+                    "User already a chat member during resolution"
+                );
+                Ok(SessionOutcome::IdempotentAlreadyMember)
+            }
+            _ => {
+                alert(
+                    bot,
+                    id,
+                    "Unable to process your join request right now. Please try again later.",
+                )
+                .await;
+                Err(err)
+            }
+        },
+    }
 }
 
 /// Handles an incoming callback query update from an inline verification challenge button.
