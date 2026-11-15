@@ -46,12 +46,15 @@ Activated when assigned a GitHub issue to implement.
      ```
    - Resolve errors until exit 0. After 3 consecutive failed repair attempts, escalate with `status:needs-human` and stop.
 
-6. **Atomic Conventional Commits**:
-   - Stage explicit file paths only (never `git add -A` or `git add .`):
+6. **Atomic Conventional Commits (One Job = One Commit)**:
+   - Enforce **one job per commit**: each commit must represent one single logical job or concern (never bundle unrelated edits, even 1-line changes in different concerns). `<= 300 LoC` is the PR diff ceiling, not a single-commit target.
+   - Stage one job at a time using sequential explicit paths or `git add -p` (never `git add -A` or `git add .`):
      ```bash
-     git add <path1> <path2>
+     git add <path1> <path2>   # or: git add -p <path>
+     git diff --cached         # verify only one job is staged
      ```
-   - Commit small slices (<= 300 LoC) using Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`). Never use `--no-verify`.
+   - Commit each job separately using Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`). Never use `--no-verify`.
+   - Before pushing, inspect `git log --stat origin/main..HEAD` to confirm one clean commit per job.
 
 7. **Push & Open Pull Request**:
    - Push branch to remote:
