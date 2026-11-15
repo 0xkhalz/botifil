@@ -1,7 +1,9 @@
 use std::fmt;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use teloxide::types::ChatId;
+use url::{Host, Url};
 
 /// Default timeout for completing a join request challenge (in seconds).
 pub const DEFAULT_CHALLENGE_TTL_SECS: u64 = 300;
@@ -13,6 +15,9 @@ pub const DEFAULT_MAX_ATTEMPTS: u8 = 2;
 pub const MAX_ALLOWED_ATTEMPTS: u8 = 5;
 /// Default filesystem path for the persistent `redb` session database.
 pub const DEFAULT_DB_PATH: &str = "./data/botifil.redb";
+/// Default bind address for the embedded `WebApp` HTTP server.
+pub const DEFAULT_WEBAPP_BIND: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080));
 
 /// Configuration errors for bot initialization.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -29,6 +34,10 @@ pub enum ConfigError {
     InvalidAllowedChats,
     #[error("BOTIFIL_DB_PATH cannot be empty or whitespace")]
     InvalidDbPath,
+    #[error("BOTIFIL_WEBAPP_URL must use https:// (or http:// on localhost/127.0.0.1/::1)")]
+    InvalidWebappUrl,
+    #[error("BOTIFIL_WEBAPP_BIND must be a valid socket address (e.g. 127.0.0.1:8080)")]
+    InvalidWebappBind,
 }
 
 /// Runtime bot configuration holding the Telegram bot token and policy settings.
@@ -39,6 +48,8 @@ pub struct Config {
     max_attempts: u8,
     allowed_chats: Vec<ChatId>,
     db_path: PathBuf,
+    webapp_url: Option<Url>,
+    webapp_bind: SocketAddr,
 }
 
 fn parse_bounded<T: std::str::FromStr + PartialOrd>(
@@ -76,6 +87,37 @@ fn parse_db_path(raw: Option<&str>) -> Result<PathBuf, ConfigError> {
     }
 }
 
+fn parse_webapp_url(raw: Option<&str>) -> Result<Option<Url>, ConfigError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let s = raw.trim();
+    if s.is_empty() {
+        return Err(ConfigError::InvalidWebappUrl);
+    }
+    let u = Url::parse(s).map_err(|_| ConfigError::InvalidWebappUrl)?;
+    let is_local = matches!(
+        u.host(),
+        Some(
+            Host::Domain("localhost")
+                | Host::Ipv4(Ipv4Addr::LOCALHOST)
+                | Host::Ipv6(Ipv6Addr::LOCALHOST)
+        )
+    );
+    let ok = u.has_host()
+        && u.username().is_empty()
+        && u.password().is_none()
+        && (u.scheme() == "https" || (u.scheme() == "http" && is_local));
+    ok.then_some(Some(u)).ok_or(ConfigError::InvalidWebappUrl)
+}
+
+fn parse_webapp_bind(raw: Option<&str>) -> Result<SocketAddr, ConfigError> {
+    match raw.map(str::trim) {
+        None | Some("") => Ok(DEFAULT_WEBAPP_BIND),
+        Some(s) => s.parse().map_err(|_| ConfigError::InvalidWebappBind),
+    }
+}
+
 impl Config {
     /// Loads configuration from environment variables and `.env` file.
     ///
@@ -85,12 +127,14 @@ impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
         let _ = dotenvy::dotenv();
         let v = |k| std::env::var(k).ok();
-        Self::from_env_vars(
+        Self::from_all_env_vars(
             v("TELOXIDE_TOKEN"),
             v("BOTIFIL_CHALLENGE_TTL_SECS").as_deref(),
             v("BOTIFIL_MAX_ATTEMPTS").as_deref(),
             v("BOTIFIL_ALLOWED_CHATS").as_deref(),
             v("BOTIFIL_DB_PATH").as_deref(),
+            v("BOTIFIL_WEBAPP_URL").as_deref(),
+            v("BOTIFIL_WEBAPP_BIND").as_deref(),
         )
     }
 
@@ -104,7 +148,7 @@ impl Config {
         Self::from_env_vars(token, None, None, None, None)
     }
 
-    /// Creates a configuration from raw environment variable values.
+    /// Creates a configuration from raw environment variable values using default `WebApp` settings.
     ///
     /// # Errors
     ///
@@ -115,6 +159,23 @@ impl Config {
         max_attempts: Option<&str>,
         allowed_chats: Option<&str>,
         db_path: Option<&str>,
+    ) -> Result<Self, ConfigError> {
+        Self::from_all_env_vars(token, ttl, max_attempts, allowed_chats, db_path, None, None)
+    }
+
+    /// Creates a configuration from all raw environment variable values.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if any setting fails validation or parsing.
+    pub fn from_all_env_vars(
+        token: Option<String>,
+        ttl: Option<&str>,
+        max_attempts: Option<&str>,
+        allowed_chats: Option<&str>,
+        db_path: Option<&str>,
+        webapp_url: Option<&str>,
+        webapp_bind: Option<&str>,
     ) -> Result<Self, ConfigError> {
         let telegram_token = match token {
             None => return Err(ConfigError::MissingToken),
@@ -136,6 +197,8 @@ impl Config {
             )?,
             allowed_chats: parse_chats(allowed_chats)?,
             db_path: parse_db_path(db_path)?,
+            webapp_url: parse_webapp_url(webapp_url)?,
+            webapp_bind: parse_webapp_bind(webapp_bind)?,
         })
     }
 
@@ -163,6 +226,18 @@ impl Config {
         &self.db_path
     }
 
+    /// Returns the validated optional `WebApp` base URL.
+    #[must_use]
+    pub fn webapp_url(&self) -> Option<&Url> {
+        self.webapp_url.as_ref()
+    }
+
+    /// Returns the listen address for the embedded `WebApp` HTTP server.
+    #[must_use]
+    pub const fn webapp_bind(&self) -> SocketAddr {
+        self.webapp_bind
+    }
+
     /// Checks if a chat ID is allowed by configuration.
     #[must_use]
     pub fn is_chat_allowed(&self, chat_id: ChatId) -> bool {
@@ -178,98 +253,12 @@ impl fmt::Debug for Config {
             .field("max_attempts", &self.max_attempts)
             .field("allowed_chats_count", &self.allowed_chats.len())
             .field("db_path", &"[REDACTED]")
+            .field("webapp_url", &self.webapp_url.as_ref().map(Url::as_str))
+            .field("webapp_bind", &self.webapp_bind)
             .finish()
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn missing_token_returns_missing_token_error() {
-        assert_eq!(Config::from_token(None), Err(ConfigError::MissingToken));
-    }
-
-    #[test]
-    fn empty_token_returns_empty_token_error() {
-        let res = Config::from_token(Some(String::new()));
-        assert_eq!(res, Err(ConfigError::EmptyToken));
-    }
-
-    #[test]
-    fn whitespace_token_returns_empty_token_error() {
-        let res = Config::from_token(Some(" \t\n ".into()));
-        assert_eq!(res, Err(ConfigError::EmptyToken));
-    }
-
-    #[test]
-    fn valid_token_returns_config() -> Result<(), ConfigError> {
-        let token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11";
-        let cfg = Config::from_token(Some(token.into()))?;
-        assert_eq!(cfg.telegram_token(), token);
-        assert_eq!(cfg.challenge_ttl().as_secs(), DEFAULT_CHALLENGE_TTL_SECS);
-        assert_eq!(cfg.max_attempts(), DEFAULT_MAX_ATTEMPTS);
-        assert!(cfg.is_chat_allowed(ChatId(123)));
-        assert_eq!(cfg.db_path(), std::path::Path::new(DEFAULT_DB_PATH));
-        Ok(())
-    }
-
-    #[test]
-    fn custom_valid_policy_and_is_chat_allowed() -> Result<(), ConfigError> {
-        let (c, db) = (Some("-1001234567890, -1009876543210,"), "/tmp/s.redb");
-        let cfg = Config::from_env_vars(Some("tok".into()), Some("60"), Some("3"), c, Some(db))?;
-        assert_eq!(cfg.challenge_ttl().as_secs(), 60);
-        assert_eq!(cfg.max_attempts(), 3);
-        assert!(cfg.is_chat_allowed(ChatId(-1_001_234_567_890)));
-        assert!(cfg.is_chat_allowed(ChatId(-1_009_876_543_210)));
-        assert!(!cfg.is_chat_allowed(ChatId(999)));
-        assert_eq!(cfg.db_path(), Path::new(db));
-        Ok(())
-    }
-
-    #[test]
-    fn invalid_ttl_returns_error() {
-        for v in ["0", "301", "abc"] {
-            let res = Config::from_env_vars(Some("t".into()), Some(v), None, None, None);
-            assert_eq!(res, Err(ConfigError::InvalidChallengeTtl));
-        }
-    }
-
-    #[test]
-    fn invalid_max_attempts_returns_error() {
-        for v in ["0", "6", "abc"] {
-            let res = Config::from_env_vars(Some("t".into()), None, Some(v), None, None);
-            assert_eq!(res, Err(ConfigError::InvalidMaxAttempts));
-        }
-    }
-
-    #[test]
-    fn invalid_allowed_chats_returns_error() {
-        for v in ["abc", ","] {
-            let res = Config::from_env_vars(Some("t".into()), None, None, Some(v), None);
-            assert_eq!(res, Err(ConfigError::InvalidAllowedChats));
-        }
-    }
-
-    #[test]
-    fn empty_or_whitespace_db_path_returns_error() {
-        for v in ["", " \t\n "] {
-            let res = Config::from_env_vars(Some("t".into()), None, None, None, Some(v));
-            assert_eq!(res, Err(ConfigError::InvalidDbPath));
-        }
-    }
-
-    #[test]
-    fn debug_format_redacts_token_and_db_path() -> Result<(), ConfigError> {
-        let (t, db) = ("secret_token_xyz", "/tmp/secret/db.redb");
-        let cfg =
-            Config::from_env_vars(Some(t.into()), Some("120"), Some("4"), Some("-1"), Some(db))?;
-        let dbg = format!("{cfg:?}");
-        assert!(dbg.contains("[REDACTED]") && !dbg.contains(t) && !dbg.contains("-1"));
-        assert!(!dbg.contains(db) && dbg.contains("db_path: \"[REDACTED]\""));
-        assert!(dbg.contains("allowed_chats_count: 1") && dbg.contains("challenge_ttl_secs: 120"));
-        assert!(dbg.contains("max_attempts: 4"));
-        Ok(())
-    }
-}
+#[path = "config_tests.rs"]
+mod tests;
