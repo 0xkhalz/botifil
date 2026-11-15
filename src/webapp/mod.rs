@@ -1,11 +1,23 @@
+use std::sync::Arc;
 use teloxide::{RequestError, requests::Requester};
 
 use crate::{
+    config::Config,
     domain::{PendingJoin, SessionOutcome},
     error::{BotErrorAction, classify_request_error},
+    store::SessionStore,
 };
 
 pub mod auth;
+pub mod server;
+
+/// Shared application state for the embedded `WebApp` HTTP server.
+#[derive(Clone)]
+pub struct WebAppState<B> {
+    pub bot: B,
+    pub config: Arc<Config>,
+    pub store: SessionStore,
+}
 
 /// Embedded Rose-Pine Telegram Mini App verification HTML.
 pub const INDEX_HTML: &str = include_str!("ui.html");
