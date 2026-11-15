@@ -17,7 +17,7 @@ trigger: model_decision
 - Large multi-PR features use `docs/specs/NNN-slug/` (`draft` -> `approved` via merged PR -> `implemented`); if an issue links a spec, wait until it is approved.
 
 ## Documentation Style & Formatting
-- All markdown files must remain ≤ 300 lines total.
+- Keep markdown files small and focused on one logical topic (no arbitrary line limit).
 - Use relative links only between documents; avoid external links where local context suffices.
 - Prefer Markdown tables and structured bullet lists over long prose paragraphs.
 - Keep documentation dense, precise, and free of conversational filler.

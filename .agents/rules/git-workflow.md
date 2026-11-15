@@ -20,7 +20,6 @@ trigger: always_on
 - **One job = one commit**: commit continuously at each logical change boundary (no end-of-task dump commits). Never bundle unrelated jobs regardless of line count.
 - **Never mix change types**: keep `refactor` separate from `feat`/`fix` (commit preparatory refactors first with tests passing); keep tests with their slice (standalone test work as `test:`).
 - **Change-based messages**: name commits after the exact change made using Conventional Commits (never a task title, phase name, PR title, or subagent assignment).
-- `≤ 300 LoC` is the **PR** diff ceiling (excl. `Cargo.lock`), not a target for a single monolithic commit.
 - Stage explicit file paths (`git add <path1> <path2>`) or hunks (`git add -p`); never use `git add -A` or `git add .`.
 - Pre-commit gate: inspect `git diff --cached` before every commit; if staged changes span multiple jobs, unstage and commit each job separately.
 - **Three-tier ignore & security gate**: never add personal AI directories to `.gitignore` and never stage transient/non-essential files (`GEMINI.md`, `*_PLAN.md`, screenshots, ad-hoc scripts). Verify no secrets, validated boundary inputs, and no sensitive data in errors before committing.
