@@ -28,9 +28,9 @@ status:ready       | fbca04 | Ready to be picked up
 status:in-progress | fbca04 | Currently being worked on
 status:blocked     | fbca04 | Blocked by dependencies or questions
 status:needs-human | fbca04 | Blocked awaiting human review or action
-size:S             | 0e8a16 | <=100 LoC
-size:M             | 0e8a16 | <=300 LoC
-size:L             | 0e8a16 | Must split (>300 LoC)
+size:S             | 0e8a16 | Small, focused change
+size:M             | 0e8a16 | Focused single-scope PR
+size:L             | 0e8a16 | Multi-scope PR (consider splitting)
 EOF
 
 # 2. Ruleset
