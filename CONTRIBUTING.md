@@ -37,8 +37,8 @@ Maintainers bootstrap labels and repository settings via:
 
 ## Review & Merge Policy
 
-- PRs require all CI checks (`ci-ok`, `pr-title`) to pass.
+- PRs require one logical scope per PR (≤ 300 LoC diff ceiling) and all CI checks (`ci-ok`, `pr-title`) to pass.
 - Reviewer agents submit reviews as inline comments without approving.
 - All review threads must be resolved before merging.
-- Every commit must follow Conventional Commits and stay atomic (rebase-merge preserves all commits).
+- Commits must be atomic and change-based using Conventional Commits: never mix change types (`refactor` vs `feat` vs `fix`), and keep tests with their slice (rebase-merge preserves all commits).
 - Only repository maintainers merge pull requests (`gh pr merge --rebase`).
