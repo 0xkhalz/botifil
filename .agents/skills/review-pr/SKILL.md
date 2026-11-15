@@ -23,8 +23,7 @@ Performs automated code and quality reviews on open pull requests.
      ```
 
 2. **Verify PR Shape & Commit Discipline**:
-   - Verify one logical scope per PR (flag `Verdict: CHANGES` if unrelated features, fixes, or refactors are bundled) and PR diff ceiling: `git diff --stat origin/main` <= 300 LoC (excluding `Cargo.lock`).
-   - Verify file ceiling: every modified file <= 300 lines.
+   - Verify one logical scope per PR (small and focused; flag `Verdict: CHANGES` if unrelated features, fixes, or refactors are bundled).
    - Verify **one job per commit**: inspect `gh pr view <n> --json commits` or `git log --stat origin/main..HEAD` and flag `Verdict: CHANGES` if distinct jobs are bundled, change types are mixed (`refactor` + `feat`/`fix`), commit messages are not change-based, or transient/non-essential files or personal AI `.gitignore` entries are committed.
    - Verify commit history and PR title follow Conventional Commits (rebase-merge preserves history on `main`).
    - Verify touched files stay strictly within owned scope from the linked issue.

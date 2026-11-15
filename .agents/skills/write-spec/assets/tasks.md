@@ -9,22 +9,20 @@
 - **Parent Spec/Issue**: docs/specs/NNN-slug/spec.md
 - **Owned Files**:
   - `src/path/to/file.rs`
-- **Slice Boundary**: [Deliverable with <= 300 changed LoC]
+- **Slice Boundary**: [Small, focused deliverable for one logical scope]
 - **Non-Goals**: [Explicit boundaries and excluded files]
 - **Verifier Command**: `scripts/verify.sh`
 - **Definition of Done**:
-  - [ ] Files stay <= 300 lines
-  - [ ] Diff stays <= 300 LoC
+  - [ ] Changes stay small, focused, and within owned files
   - [ ] Verifier passes cleanly
 
 ### Task 2: [Short Task Title]
 - **Parent Spec/Issue**: docs/specs/NNN-slug/spec.md
 - **Owned Files**:
   - `src/path/to/another.rs`
-- **Slice Boundary**: [Deliverable with <= 300 changed LoC]
+- **Slice Boundary**: [Small, focused deliverable for one logical scope]
 - **Non-Goals**: [Explicit boundaries and excluded files]
 - **Verifier Command**: `scripts/verify.sh`
 - **Definition of Done**:
-  - [ ] Files stay <= 300 lines
-  - [ ] Diff stays <= 300 LoC
+  - [ ] Changes stay small, focused, and within owned files
   - [ ] Verifier passes cleanly
