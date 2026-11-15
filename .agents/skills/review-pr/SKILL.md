@@ -23,8 +23,9 @@ Performs automated code and quality reviews on open pull requests.
      ```
 
 2. **Verify PR Shape & Commit Discipline**:
-   - Verify diff ceiling: `git diff --stat origin/main` <= 300 LoC (excluding `Cargo.lock`).
+   - Verify PR diff ceiling: `git diff --stat origin/main` <= 300 LoC (excluding `Cargo.lock`).
    - Verify file ceiling: every modified file <= 300 lines.
+   - Verify **one job per commit**: inspect `gh pr view <n> --json commits` or `git log --stat origin/main..HEAD` and flag `Verdict: CHANGES` if distinct jobs or unrelated concerns are bundled into a single commit (even small edits).
    - Verify commit history follows Conventional Commits (rebase-merge preserves history on `main`).
    - Verify touched files stay strictly within owned scope from the linked issue.
 
