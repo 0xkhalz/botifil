@@ -17,8 +17,11 @@ trigger: always_on
   ```
 
 ## Staging & Commits
-- Use explicit file paths (`git add <path1> <path2>`); never use `git add -A` or `git add .`.
-- Atomic commits by change, not task (ceiling: ≤ 300 lines of code per commit).
+- **One job = one commit**: each commit must represent one single logical job or concern. Never bundle two different jobs into one commit regardless of line count (e.g. 1 edit in `main` + 1 edit in `login` = 2 commits).
+- `≤ 300 LoC` is the **PR** diff ceiling (excl. `Cargo.lock`), not a target for a single monolithic commit.
+- Stage explicit file paths (`git add <path1> <path2>`) or hunks (`git add -p`); never use `git add -A` or `git add .`.
+- Pre-commit gate: inspect `git diff --cached` before every commit; if staged changes span multiple jobs, unstage and commit each job separately.
+- Pre-PR gate: inspect `git log --stat origin/main..HEAD` before opening or updating a PR to verify one clean commit per job.
 - Every commit must follow Conventional Commits (rebase-merge preserves history on `main`).
 - Reference issues using `Fixes #N` or `Closes #N`.
 
