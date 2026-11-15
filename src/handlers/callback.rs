@@ -33,20 +33,26 @@ async fn alert<B: Requester>(bot: &B, id: CallbackQueryId, text: impl Into<Strin
         .await;
 }
 
-async fn finish<B: Requester<Err = RequestError>>(
+/// Edits the verification DM and approves or declines the join request idempotently.
+///
+/// # Errors
+/// Returns [`RequestError`] if approving or declining fails with an unhandled Telegram API error.
+pub async fn resolve_session<B: Requester<Err = RequestError>>(
     bot: &B,
-    id: CallbackQueryId,
-    s: PendingJoin,
+    s: &PendingJoin,
     pass: bool,
 ) -> Result<SessionOutcome, RequestError> {
-    let (toast, msg, out) = if pass {
-        let t = "Verification passed. Your join request has been approved.";
-        ("Verification passed!", t, SessionOutcome::Approved)
+    let (msg, out) = if pass {
+        (
+            "Verification passed. Your join request has been approved.",
+            SessionOutcome::Approved,
+        )
     } else {
-        let t = "Verification failed. Your join request has been declined.";
-        ("Verification failed.", t, SessionOutcome::DeclinedExhausted)
+        (
+            "Verification failed. Your join request has been declined.",
+            SessionOutcome::DeclinedExhausted,
+        )
     };
-    let _ = bot.answer_callback_query(id).text(toast).await;
     if let Some(m) = s.message_id {
         let _ = bot.edit_message_text(s.user_chat_id, m, msg).await;
     }
@@ -56,6 +62,21 @@ async fn finish<B: Requester<Err = RequestError>>(
         bot.decline_chat_join_request(s.chat_id, s.user_id).await
     };
     resolve_with_idempotency(res, out)
+}
+
+async fn finish<B: Requester<Err = RequestError>>(
+    bot: &B,
+    id: CallbackQueryId,
+    s: &PendingJoin,
+    pass: bool,
+) -> Result<SessionOutcome, RequestError> {
+    let toast = if pass {
+        "Verification passed!"
+    } else {
+        "Verification failed."
+    };
+    let _ = bot.answer_callback_query(id).text(toast).await;
+    resolve_session(bot, s, pass).await
 }
 
 /// Handles an incoming callback query update from an inline verification challenge button.
@@ -99,7 +120,7 @@ where
             alert(&bot, q.id, msg).await;
             Ok(SessionOutcome::RetryAllowed { remaining: rem })
         }
-        AttemptOutcome::Approved(s) => finish(&bot, q.id, s, true).await,
-        AttemptOutcome::DeclinedExhausted(s) => finish(&bot, q.id, s, false).await,
+        AttemptOutcome::Approved(s) => finish(&bot, q.id, &s, true).await,
+        AttemptOutcome::DeclinedExhausted(s) => finish(&bot, q.id, &s, false).await,
     }
 }

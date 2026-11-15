@@ -3,7 +3,7 @@ use teloxide::{
     RequestError,
     payloads::SendMessageSetters,
     requests::Requester,
-    types::{ChatJoinRequest, InlineKeyboardButton, InlineKeyboardMarkup},
+    types::{ChatJoinRequest, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo},
 };
 
 use crate::{
@@ -27,6 +27,23 @@ pub fn build_challenge_keyboard(
         Ok(InlineKeyboardButton::callback(c.to_string(), act.encode()?))
     };
     Ok(InlineKeyboardMarkup::new([[btn(c1)?, btn(c2)?, btn(c3)?]]))
+}
+
+/// Builds the inline keyboard with a Telegram `WebApp` verification button.
+///
+/// # Errors
+/// Returns [`DomainError::InvalidToken`] if `base_url` cannot host a query string.
+pub fn build_webapp_keyboard(
+    base_url: &url::Url,
+    token: &SessionToken,
+) -> Result<InlineKeyboardMarkup, DomainError> {
+    if base_url.cannot_be_a_base() {
+        return Err(DomainError::InvalidToken);
+    }
+    let mut url = base_url.clone();
+    url.query_pairs_mut().append_pair("token", token.as_str());
+    let btn = InlineKeyboardButton::web_app("🛡️ Open Verification", WebAppInfo { url });
+    Ok(InlineKeyboardMarkup::new([[btn]]))
 }
 
 /// Handles an incoming chat join request update by issuing a verification challenge.
@@ -75,7 +92,18 @@ where
         Challenge::generate(),
         tokio::time::Instant::now(),
     );
-    let Ok(kb) = build_challenge_keyboard(&token, challenge.choices) else {
+    let (prompt, kb_res) = if let Some(base_url) = config.webapp_url() {
+        (
+            "Tap below to verify your join request.".to_owned(),
+            build_webapp_keyboard(base_url, &token),
+        )
+    } else {
+        (
+            challenge.prompt_text(),
+            build_challenge_keyboard(&token, challenge.choices),
+        )
+    };
+    let Ok(kb) = kb_res else {
         tracing::warn!("Failed to build challenge keyboard; skipping request");
         return Ok(SessionOutcome::IdempotentNoOp);
     };
@@ -84,7 +112,7 @@ where
         chat_id: req.chat.id,
         user_id: req.from.id,
         user_chat_id: req.user_chat_id,
-        challenge: challenge.clone(),
+        challenge,
         attempts: 0,
         max_attempts: config.max_attempts(),
         message_id: None,
@@ -95,7 +123,7 @@ where
         return Ok(SessionOutcome::IdempotentNoOp);
     }
     let res = bot
-        .send_message(req.user_chat_id, challenge.prompt_text())
+        .send_message(req.user_chat_id, prompt)
         .reply_markup(kb)
         .await;
     match res {
