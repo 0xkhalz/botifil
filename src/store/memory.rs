@@ -106,6 +106,21 @@ impl Storage for MemoryStore {
             true
         })
     }
+    fn get_by_token(
+        &self,
+        token: &SessionToken,
+        now: Instant,
+    ) -> Result<Option<PendingJoin>, StoreError> {
+        let mut inner = self.write();
+        let Some(s) = inner.by_token.get(token) else {
+            return Ok(None);
+        };
+        if now >= s.expires_at {
+            inner.remove_token(token);
+            return Ok(None);
+        }
+        Ok(Some(s.clone()))
+    }
     fn verify_attempt(
         &self,
         tok: &SessionToken,
@@ -195,6 +210,17 @@ impl SessionStore {
         let t = tok.clone();
         self.exec(false, move |st| st.set_message_id(&t, msg)).await
     }
+    /// # Errors
+    /// Returns [`StoreError::Backend`] if backend read or blocking dispatch fails.
+    pub async fn get_by_token(
+        &self,
+        token: &SessionToken,
+        now: Instant,
+    ) -> Result<Option<PendingJoin>, StoreError> {
+        let fb = Err(StoreError::Backend("blocking storage task failed".into()));
+        let t = token.clone();
+        self.exec(fb, move |st| st.get_by_token(&t, now)).await
+    }
     pub async fn verify_attempt(
         &self,
         tok: &SessionToken,
@@ -228,71 +254,5 @@ impl SessionStore {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{AttemptOutcome::*, *};
-    use crate::domain::Challenge;
-    use std::time::Duration;
-
-    fn session(user: u64, expires_at: Instant) -> PendingJoin {
-        PendingJoin {
-            token: SessionToken::generate(),
-            chat_id: ChatId(-1),
-            user_id: UserId(user),
-            user_chat_id: ChatId(1),
-            challenge: Challenge::generate(),
-            attempts: 0,
-            max_attempts: 2,
-            message_id: None,
-            expires_at,
-        }
-    }
-
-    #[tokio::test]
-    async fn test_store() -> Result<(), StoreError> {
-        let (store, now) = (SessionStore::new(2), Instant::now());
-        let (past, exp) = (now - Duration::from_secs(10), now + Duration::from_secs(60));
-        let t1 = store.upsert(session(1, exp), now).await?;
-        let t2 = store.upsert(session(1, exp), now).await?;
-        assert!(t1 != t2 && store.len().await == 1 && store.remove_by_token(&t1).await.is_none());
-        assert!(store.set_message_id(&t2, MessageId(10)).await);
-        assert!(store.remove_by_peer(ChatId(-1), UserId(1)).await.is_some());
-        assert!(store.is_empty().await);
-        let mut s = session(2, exp);
-        let t = store.upsert(s.clone(), now).await?;
-        let (ans, u2) = (s.challenge.correct_answer(), UserId(2));
-        let res = store.verify_attempt(&t, UserId(99), ans, now).await;
-        assert_eq!(res, WrongUser);
-        let res = store.verify_attempt(&t, u2, ans + 1, now).await;
-        assert_eq!(res, AttemptOutcome::retry(1));
-        s.attempts = 2;
-        let res = store.verify_attempt(&t, u2, ans + 1, now).await;
-        assert_eq!(res, DeclinedExhausted(s));
-        let s3 = session(3, exp);
-        let (ans3, tok_ok) = (s3.challenge.correct_answer(), store.upsert(s3, now).await?);
-        let res = store.verify_attempt(&tok_ok, UserId(3), ans3, now).await;
-        assert!(matches!(res, Approved(_)));
-        let tok_exp = store.upsert(session(4, past), past).await?;
-        let res1 = store.verify_attempt(&tok_exp, UserId(4), ans, now).await;
-        let dummy = SessionToken::generate();
-        let res2 = store.verify_attempt(&dummy, UserId(1), ans, now).await;
-        assert!(res1 == NotFoundOrExpired && res2 == NotFoundOrExpired);
-        let t5 = store.upsert(session(5, past), past).await?;
-        let t6 = store.upsert(session(6, exp), past).await?;
-        assert_eq!(store.len().await, 2);
-        let reaped = store.reap_expired(now).await;
-        assert_eq!(reaped.first().map(|s| &s.token), Some(&t5));
-        assert_eq!(store.len().await, 1);
-        store.upsert(session(7, past), now).await?;
-        let t8 = store.upsert(session(8, exp), now).await?;
-        assert_eq!(store.len().await, 2);
-        let err = store.upsert(session(9, exp), now).await;
-        assert_eq!(err, Err(StoreError::CapacityExceeded));
-        assert!(store.remove_by_token(&t6).await.is_some());
-        assert!(store.remove_by_token(&t8).await.is_some() && store.is_empty().await);
-        let e0 = MemoryStore::new(0).upsert(session(9, exp), now);
-        assert_eq!(e0, Err(StoreError::CapacityExceeded));
-        let s9 = SessionStore::from_storage(Arc::new(MemoryStore::default()));
-        assert!(s9.upsert(session(9, exp), now).await.is_ok() && s9.len().await == 1);
-        Ok(())
-    }
-}
+#[path = "memory_tests.rs"]
+mod tests;
