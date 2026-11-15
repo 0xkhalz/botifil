@@ -7,8 +7,8 @@ trigger: always_on
 
 ## Roles
 - **Orchestrator**: Decomposes issues into task packets, dispatches implementer/reviewer agents, coordinates PR lifecycle. Never writes project code inline.
-- **Implementer**: Works 1 issue in an isolated worktree on owned files only. Follows TDD, runs `./scripts/verify.sh`, and opens PR with atomic commits.
-- **Reviewer**: Fresh context, never the PR author. Submits `--comment` reviews with inline thread feedback and explicit `Verdict: NICE` or `Verdict: CHANGES`. Never approves or merges PR (rebase-merge is maintainer-only).
+- **Implementer**: Works 1 issue in an isolated worktree on owned files only. Follows TDD, runs `./scripts/verify.sh`, enforces one-job-per-commit atomicity (`git log --stat origin/main..HEAD`), and opens PR.
+- **Reviewer**: Fresh context, never the PR author. Reviews code and commit history (flagging `CHANGES` if distinct jobs are bundled in one commit), submits `--comment` reviews with inline thread feedback and explicit `Verdict: NICE` or `Verdict: CHANGES`. Never approves or merges PR (rebase-merge is maintainer-only).
 
 ## Delegation Packet
 1. Worktree & owned files (explicit whitelist).
@@ -16,6 +16,7 @@ trigger: always_on
 3. Non-goals (explicit exclusions).
 4. Verifier command (`./scripts/verify.sh`).
 5. Project context (`AGENTS.md` and active rules).
+6. Commit discipline (one job per commit; verify `git diff --cached` and `git log --stat origin/main..HEAD`).
 
 ## Escalation Triggers
 Stop immediately and apply label `status:needs-human` if:
