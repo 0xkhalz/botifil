@@ -22,6 +22,7 @@ verify: OK
 
 - [ ] `scripts/verify.sh` passed (exit code 0)
 - [ ] Total diff `<= 300` LoC and every file `<= 300` lines
+- [ ] One job per commit (distinct jobs/concerns split into separate commits)
 - [ ] Spec or ADR linked if applicable
 - [ ] No secrets, tokens, private IDs, or local paths
 - [ ] No unapproved dependencies added
