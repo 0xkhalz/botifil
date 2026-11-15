@@ -74,11 +74,25 @@ async fn main() -> anyhow::Result<()> {
     check_bot(&throttled).await?;
 
     let mut dp = Dispatcher::builder(throttled.clone(), handlers::schema::<Throttle<Bot>>())
-        .dependencies(dptree::deps![cfg, store.clone()])
+        .dependencies(dptree::deps![cfg.clone(), store.clone()])
         .build();
 
     let (tok, (tx, rx)) = (dp.shutdown_token(), watch::channel(false));
-    let reaper = tokio::spawn(run_expiry_reaper(store, rx));
+    let reaper = tokio::spawn(run_expiry_reaper(store.clone(), rx.clone()));
+    let webapp_task = if cfg.webapp_url().is_some() {
+        let tcp = tokio::net::TcpListener::bind(cfg.webapp_bind()).await?;
+        let addr = tcp.local_addr()?;
+        tracing::info!(bind = %addr, "Embedded WebApp server listening");
+        Some(tokio::spawn(botifil::webapp::server::serve_webapp(
+            tcp,
+            throttled.clone(),
+            cfg,
+            store,
+            rx,
+        )))
+    } else {
+        None
+    };
     tokio::spawn(async move {
         let _ = wait_for_shutdown().await;
         let _ = tx.send(true);
@@ -92,6 +106,9 @@ async fn main() -> anyhow::Result<()> {
     let err_handler = LoggingErrorHandler::new();
     dp.try_dispatch_with_listener(listener, err_handler).await?;
     let _ = reaper.await;
+    if let Some(task) = webapp_task {
+        let _ = task.await;
+    }
     tracing::info!("Shutdown complete");
     Ok(())
 }
