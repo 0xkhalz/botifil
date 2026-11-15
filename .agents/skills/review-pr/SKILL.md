@@ -10,7 +10,7 @@ Performs automated code and quality reviews on open pull requests.
 ## Trigger & Constraints
 
 - **Trigger**: Activated when assigned to review an open pull request.
-- **Constraints**: Reviewers operate with read/comment permissions only. Reviewers must never edit code, push commits, execute `gh pr review --approve`, or merge pull requests (`gh pr merge`).
+- **Constraints**: Reviewer subagent runs on `Model="inherit"` (fresh context, never the PR author) with read/comment permissions only. Reviewers must never edit code, push commits, execute `gh pr review --approve`, or merge pull requests (`gh pr merge`).
 
 ## Workflow Steps
 
@@ -23,13 +23,14 @@ Performs automated code and quality reviews on open pull requests.
      ```
 
 2. **Verify PR Shape & Commit Discipline**:
-   - Verify PR diff ceiling: `git diff --stat origin/main` <= 300 LoC (excluding `Cargo.lock`).
+   - Verify one logical scope per PR (flag `Verdict: CHANGES` if unrelated features, fixes, or refactors are bundled) and PR diff ceiling: `git diff --stat origin/main` <= 300 LoC (excluding `Cargo.lock`).
    - Verify file ceiling: every modified file <= 300 lines.
-   - Verify **one job per commit**: inspect `gh pr view <n> --json commits` or `git log --stat origin/main..HEAD` and flag `Verdict: CHANGES` if distinct jobs or unrelated concerns are bundled into a single commit (even small edits).
-   - Verify commit history follows Conventional Commits (rebase-merge preserves history on `main`).
+   - Verify **one job per commit**: inspect `gh pr view <n> --json commits` or `git log --stat origin/main..HEAD` and flag `Verdict: CHANGES` if distinct jobs are bundled, change types are mixed (`refactor` + `feat`/`fix`), commit messages are not change-based, or transient/non-essential files or personal AI `.gitignore` entries are committed.
+   - Verify commit history and PR title follow Conventional Commits (rebase-merge preserves history on `main`).
    - Verify touched files stay strictly within owned scope from the linked issue.
 
 3. **Audit Code Quality & Invariants**:
+   - **Severity Levels**: Classify findings as `CRITICAL` (BLOCK — must fix before merge), `HIGH` (WARN — should fix before merge), `MEDIUM` (INFO — consider fixing), or `LOW` (NOTE — optional).
    - **Rust Standards**: No `unwrap()`, `expect()`, or `panic!` outside tests; zero `unsafe`; preserve newtypes per [.agents/rules/rust-code.md](../../../.agents/rules/rust-code.md).
    - **Dependencies**: No unauthorized crates added without an accepted ADR in [docs/decisions/README.md](../../../docs/decisions/README.md).
    - **Security**: No tokens, group/user IDs, or personal paths; callback data <= 64 bytes per [.agents/rules/security.md](../../../.agents/rules/security.md).
@@ -43,10 +44,10 @@ Performs automated code and quality reviews on open pull requests.
    - Must start with explicit `Verdict: NICE` or `Verdict: CHANGES`.
 
 5. **Post Inline Thread Comments**:
-   - For every CRITICAL, HIGH, or MEDIUM finding, post an inline review comment to ensure thread resolution blocks merge:
+   - For every CRITICAL, HIGH, or MEDIUM finding, post an inline review comment via a temporary file (never inline `-f body="..."`) to ensure thread resolution blocks merge:
      ```bash
      gh api -X POST "repos/{owner}/{repo}/pulls/<n>/comments" \
-       -f body="[SEVERITY] Detailed description and suggested fix" \
+       -F body=@<tmpfile> \
        -f commit_id="<head_sha>" \
        -f path="<file_path>" \
        -F line=<line_number>
