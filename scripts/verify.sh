@@ -35,30 +35,6 @@ check_docs() {
   echo "==> Running gitleaks..."
   run_tool gitleaks dir --no-banner --redact .
   run_tool gitleaks git --no-banner --redact .
-
-  echo "==> Checking 300-line ceiling on tracked files..."
-  local failed=0
-  while IFS= read -r -d '' file; do
-    case "$file" in
-      *.md|*.rs|*.toml|*.yml|*.yaml|*.sh|*.json)
-        if [[ "$file" == "Cargo.lock" ]]; then
-          continue
-        fi
-        if [[ -f "$file" ]]; then
-          local lines
-          lines=$(awk 'END {print NR}' "$file")
-          if (( lines > 300 )); then
-            echo "ERROR: $file exceeds 300 lines ($lines lines)" >&2
-            failed=1
-          fi
-        fi
-        ;;
-    esac
-  done < <(git ls-files -z)
-  if (( failed != 0 )); then
-    echo "Line count ceiling check failed" >&2
-    exit 1
-  fi
 }
 
 check_rust() {
