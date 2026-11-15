@@ -16,7 +16,8 @@ Telegram bot that approves/declines group join requests. Rust + teloxide. Agents
 - Never commit directly to `main`.
 - 1 issue → 1 `.worktrees/` branch `<type>/<issue#>-<slug>` → 1 PR.
 - Agents never merge, approve, force-push, or edit repository rulesets/secrets.
-- PR size ≤ 300 LoC diff (excl. `Cargo.lock`); files ≤ 300 lines.
+- PR ceiling ≤ 300 LoC diff (excl. `Cargo.lock`); files ≤ 300 lines.
+- One job = one commit: never bundle unrelated edits/jobs into one commit (even 1-line edits in different concerns).
 - Every commit and PR title must follow Conventional Commits (rebase-merge preserves all commits).
 - No `unwrap`, `expect`, or `panic!` outside tests; `unsafe` forbidden.
 - No new dependencies without an accepted ADR.
