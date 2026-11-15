@@ -26,13 +26,27 @@ sequenceDiagram
     end
     alt Verification Successful
         Bot->>TG: approveChatJoinRequest(chat_id: chat.id, user_id: from.id)
-        TG->>Group: Add user to chat
-        TG->>Bot: Update: chat_member (status: member)
-        Bot->>TG: editMessageText(chat_id: user_chat_id, text: "Approved")
+        alt Approved (200 OK)
+            TG->>Group: Add user to chat
+            TG->>Bot: Update: chat_member (status: member)
+            Bot->>TG: answerCallbackQuery(callback_query_id, text: "Approved")
+            Bot-->>TG: editMessageText(chat_id: user_chat_id, text: "Approved") [best-effort]
+        else HIDE_REQUESTER_MISSING (Already Dismissed / Handled by Admin)
+            TG-->>Bot: 400 Bad Request: HIDE_REQUESTER_MISSING
+            Bot->>TG: answerCallbackQuery(callback_query_id, text: "Request no longer pending")
+            Bot-->>TG: editMessageText(chat_id: user_chat_id, text: "Request no longer pending") [best-effort]
+        end
     else Verification Failed / Expired
         Bot->>TG: declineChatJoinRequest(chat_id: chat.id, user_id: from.id)
-        TG-->>User: Dismiss request silently
-        Bot->>TG: editMessageText(chat_id: user_chat_id, text: "Declined")
+        alt Declined (200 OK)
+            TG-->>User: Dismiss request silently
+            Bot->>TG: answerCallbackQuery(callback_query_id, text: "Declined")
+            Bot-->>TG: editMessageText(chat_id: user_chat_id, text: "Declined") [best-effort]
+        else HIDE_REQUESTER_MISSING (Already Dismissed / Handled by Admin)
+            TG-->>Bot: 400 Bad Request: HIDE_REQUESTER_MISSING
+            Bot->>TG: answerCallbackQuery(callback_query_id, text: "Request no longer pending")
+            Bot-->>TG: editMessageText(chat_id: user_chat_id, text: "Request no longer pending") [best-effort]
+        end
     end
 ```
 
@@ -58,7 +72,7 @@ Telegram strictly forbids unsolicited bot DMs unless an active authorization con
 1. **Window Initiation**: Triggered when an applicant submits a join request. Telegram grants the bot a 300-second authorization ticket bound to `user_chat_id`.
 2. **No `/start` Prerequisite**: The bot can send initial messages with `InlineKeyboardMarkup` directly to `user_chat_id`.
 3. **Window Expiration**: After 300 seconds from `req.date`, outbound messages fail with `403 Forbidden: bot can't initiate conversation with a user`.
-4. **Premature Termination**: Calling `approveChatJoinRequest` or `declineChatJoinRequest` terminates the ticket immediately. Any UI edits to the challenge message must be performed prior to or concurrently with the resolution call.
+4. **Premature Termination**: Calling `approveChatJoinRequest` or `declineChatJoinRequest` (or an admin dismissing the request) terminates the DM ticket immediately. Telegram Bot API emits no update when an admin dismisses a join request (and `getChatMember` cannot distinguish pending vs dismissed). Therefore bots must call `approveChatJoinRequest` / `declineChatJoinRequest` before `answerCallbackQuery` and best-effort `editMessageText`, avoiding false approval messages if the request was already dismissed (`HIDE_REQUESTER_MISSING`). Note that `answerCallbackQuery` is bound to `callback_query.id` (independent of the DM ticket) and remains guaranteed even if the DM ticket closed upon admin dismissal.
 5. **Block Bypass Limit**: If the user has explicitly blocked the bot previously, outbound messages immediately fail with `403 Forbidden: bot was blocked by the user`.
 
 ## 4. Chat Configuration & Invite Link Invariants

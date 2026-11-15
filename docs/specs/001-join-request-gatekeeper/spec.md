@@ -13,14 +13,14 @@ Automate Telegram supergroup/channel join request admission using interactive ar
 1. **Join Request Trigger**: When applicant requests to join, bot initiates an ephemeral DM.
 2. **Arithmetic Challenge**: DM presents `A + B = ?` (`1 <= A, B <= 9`) with 3 inline buttons (1 correct, 2 distractors).
 3. **Attempt Policy**: Configurable `max_attempts` (default `2`, valid range `1..=5`). Wrong answers decrement attempts and prompt retry.
-4. **Resolution Feedback**: Bot edits DM (`editMessageText`) to "Approved" or "Declined" before resolving join request.
+4. **Resolution Feedback**: Bot resolves the join request (`approveChatJoinRequest` / `declineChatJoinRequest`) before calling `answerCallbackQuery` and best-effort `editMessageText`, reporting accurate feedback on `HIDE_REQUESTER_MISSING` and `USER_ALREADY_PARTICIPANT`.
 
 ## Technical Requirements
 
 ### Routing Invariants & Identifiers
 - DM operations: `sendMessage` and `editMessageText` MUST target `req.user_chat_id`.
 - Join resolution: `approveChatJoinRequest` and `declineChatJoinRequest` MUST target `req.chat.id` with `req.from.id`.
-- Edit ordering: `editMessageText` MUST precede approve/decline calls before the ephemeral ticket expires.
+- Edit ordering (resolve-before-feedback): `approveChatJoinRequest` / `declineChatJoinRequest` MUST precede `answerCallbackQuery` and best-effort `editMessageText`, returning accurate feedback on `HIDE_REQUESTER_MISSING` and `USER_ALREADY_PARTICIPANT`.
 
 ### Callback Data Encoding
 - Format: `v1:<token>:<answer>` (strictly <= 64 UTF-8 bytes).
