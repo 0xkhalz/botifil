@@ -33,11 +33,11 @@ Maintainers bootstrap labels and repository settings via:
 - `type:*`: `type:feat`, `type:fix`, `type:docs`, `type:chore`, `type:refactor`, `type:test`, `type:perf`.
 - `area:*`: `area:bot`, `area:ci`, `area:docs`, `area:agents`.
 - `status:*`: `status:needs-spec`, `status:ready`, `status:in-progress`, `status:blocked`, `status:needs-human`.
-- `size:*`: `size:S`, `size:M`, `size:L` (PR ceiling: ≤ 300 LoC diff).
+- `size:*`: `size:S`, `size:M`, `size:L` (keep PRs small and focused on one logical scope).
 
 ## Review & Merge Policy
 
-- PRs require one logical scope per PR (≤ 300 LoC diff ceiling) and all CI checks (`ci-ok`, `pr-title`) to pass.
+- PRs require one logical scope per PR (small and focused, no arbitrary LoC limit) and all CI checks (`ci-ok`, `pr-title`) to pass.
 - Reviewer agents submit reviews as inline comments without approving.
 - All review threads must be resolved before merging.
 - Commits must be atomic and change-based using Conventional Commits: never mix change types (`refactor` vs `feat` vs `fix`), and keep tests with their slice (rebase-merge preserves all commits).

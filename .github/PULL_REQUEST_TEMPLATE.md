@@ -9,7 +9,7 @@ Fixes #
 ## Scope
 
 - Files touched:
-- Diff confirmation (`git diff --stat origin/main` <= 300 LoC):
+- Diff summary (`git diff --stat origin/main`):
 
 ## Verification Evidence
 
@@ -21,8 +21,7 @@ verify: OK
 ## Checklist
 
 - [ ] `scripts/verify.sh` passed (exit code 0)
-- [ ] One logical scope per PR (no unrelated features, fixes, or refactors)
-- [ ] Total diff `<= 300` LoC and every file `<= 300` lines
+- [ ] One logical scope per PR (small and focused; no unrelated features, fixes, or refactors)
 - [ ] One job per commit (no mixed change types; change-based commit messages; tests with their slice)
 - [ ] Spec or ADR linked if applicable
 - [ ] No secrets, tokens, private IDs, or local paths
