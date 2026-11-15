@@ -4,3 +4,4 @@ pub mod error;
 pub mod handlers;
 pub mod screening;
 pub mod store;
+pub mod webapp;
