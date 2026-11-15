@@ -21,7 +21,8 @@ Verify every implementation and code review against these domain invariants:
    - `req.user_chat_id` (`ChatId`): Ephemeral 1-on-1 DM channel; use as `chat_id` for `sendMessage` and `editMessageText`. Never pass to approval methods.
 2. **Ephemeral 5-Minute DM Window**:
    - Telegram grants a 300-second direct messaging ticket bound to `user_chat_id` from `req.date`.
-   - Edit or update challenge UI before or concurrently with `approveChatJoinRequest` or `declineChatJoinRequest`; resolution calls immediately terminate the ticket.
+   - Telegram emits no update when an admin dismisses a join request (and `getChatMember` cannot distinguish pending vs dismissed), which also closes the DM ticket.
+   - Always call `approveChatJoinRequest` / `declineChatJoinRequest` before `answerCallbackQuery` and best-effort `editMessageText` to avoid false approval/decline messages if already dismissed (`HIDE_REQUESTER_MISSING`). `answerCallbackQuery` is bound to `callback_query.id` (independent of the DM ticket) and remains guaranteed even after ticket closure.
 3. **Update Delivery Whitelist**:
    - Polling and webhook `allowed_updates` must explicitly include `chat_join_request` and `callback_query` (plus `chat_member` for status transitions).
 4. **Chat Administrator Rights**:
