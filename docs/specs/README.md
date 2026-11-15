@@ -26,3 +26,11 @@ Templates are located in `.agents/skills/write-spec/assets/`.
 ## Task Sizing Rule
 
 Every task in `tasks.md` maps to one `task.yml` issue sized at <= 300 LoC.
+
+## Specifications
+
+| Spec | Title | Status | Milestone | Date |
+| --- | --- | --- | --- | --- |
+| [001-join-request-gatekeeper](001-join-request-gatekeeper/spec.md) | Join Request Gatekeeper | draft | M2 | 2026-11-14 |
+| [002-persistence-and-admin-controls](002-persistence-and-admin-controls/spec.md) | Persistence and Admin Controls | approved | M3 & M4 | 2026-11-14 |
+| [003-telegram-webapp-ui](003-telegram-webapp-ui/spec.md) | Telegram Web App Verification UI | approved | M5 | 2026-11-15 |
