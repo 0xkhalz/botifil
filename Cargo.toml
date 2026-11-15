@@ -32,14 +32,14 @@ panic = "abort"
 
 [dependencies]
 teloxide = { version = "0.17", default-features = false, features = ["macros", "throttle", "rustls"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "net", "io-util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
 dotenvy = "0.15"
 redb = "2.6"
+url = "2"
 
 [dev-dependencies]
 wiremock = "0.6"
-url = "2"
