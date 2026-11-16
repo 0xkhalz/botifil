@@ -5,6 +5,7 @@ use botifil::{
     domain::SessionOutcome,
     handlers,
     store::{DEFAULT_MAX_CAPACITY, SessionStore, reconciliation::reconcile_on_startup},
+    webapp::WebAppState,
 };
 use teloxide::{
     adaptors::{Throttle, throttle::Limits},
@@ -83,10 +84,26 @@ async fn main() -> anyhow::Result<()> {
     check_bot(&throttled).await?;
 
     let mut dp = Dispatcher::builder(throttled.clone(), handlers::schema::<Throttle<Bot>>())
-        .dependencies(dptree::deps![cfg, store.clone()])
+        .dependencies(dptree::deps![cfg.clone(), store.clone()])
         .build();
 
     let (tok, (tx, rx)) = (dp.shutdown_token(), watch::channel(false));
+    let webapp_server = if cfg.webapp_url().is_some() {
+        let listener = tokio::net::TcpListener::bind(cfg.webapp_bind()).await?;
+        tracing::info!(bind = %cfg.webapp_bind(), "Starting WebApp HTTP server");
+        let state = WebAppState {
+            bot: throttled.clone(),
+            config: cfg.clone(),
+            store: store.clone(),
+        };
+        Some(tokio::spawn(botifil::webapp::server::serve(
+            listener,
+            state,
+            rx.clone(),
+        )))
+    } else {
+        None
+    };
     let reaper = tokio::spawn(run_expiry_reaper(store, rx));
     tokio::spawn(async move {
         let _ = wait_for_shutdown().await;
@@ -100,7 +117,17 @@ async fn main() -> anyhow::Result<()> {
     let listener = poller.allowed_updates(allowed_update_types()).build();
     let err_handler = LoggingErrorHandler::new();
     dp.try_dispatch_with_listener(listener, err_handler).await?;
-    let _ = reaper.await;
+    if let Some(handle) = webapp_server {
+        let (reaper_res, webapp_res) = tokio::join!(reaper, handle);
+        if let Err(err) = reaper_res {
+            tracing::warn!(error = %err, "Expiry reaper task failed");
+        }
+        if let Err(err) = webapp_res {
+            tracing::error!(error = %err, "WebApp HTTP server task failed");
+        }
+    } else if let Err(err) = reaper.await {
+        tracing::warn!(error = %err, "Expiry reaper task failed");
+    }
     tracing::info!("Shutdown complete");
     Ok(())
 }
