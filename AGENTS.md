@@ -14,11 +14,11 @@ Telegram bot that approves/declines group join requests. Rust + teloxide. Agents
 
 ## 3. Non-Negotiable Invariants
 - Never commit directly to `main`.
-- 1 issue → 1 flat `.worktrees/<issue#>-<slug>` on branch `<type>/<issue#>-<slug>` → 1 logical scope = 1 PR.
+- 1 issue → 1 flat `.worktrees/<issue#>-<slug>` on branch `<type>/<issue#>-<slug>` (plain-word `<slug>`) → 1 logical scope = 1 PR.
 - Agents never merge, approve, force-push, or edit repository rulesets/secrets.
 - Keep PRs and files small and focused on one logical change/topic (no arbitrary LoC or line limit).
-- Subagents own all commits and commit continuously at each logical change boundary: one job = one commit, never mix change types (`refactor`/`feat`/`fix`), keep tests with their slice, and use change-based Conventional Commit messages.
-- PR titles must follow Conventional Commits (rebase-merge preserves all commits).
+- Subagents own all commits and commit continuously at each logical change boundary: one job = one commit, never mix change types (`refactor`/`feat`/`fix`), keep tests with their slice, and derive plain-word Conventional Commit subjects from `git diff --staged`.
+- Commit subjects, branches, and PR titles must use plain-word Conventional Commits (no milestone IDs, phase numbers, spec/ADR numbers alone, or private tool/config names); keep internal `Refs:` in body/footer only (rebase-merge preserves all commits).
 - Subagents must strictly use `Model="inherit"` (never `flash` or `flash_lite`).
 - No `unwrap`, `expect`, or `panic!` outside tests; `unsafe` forbidden.
 - No new dependencies without an accepted ADR.
