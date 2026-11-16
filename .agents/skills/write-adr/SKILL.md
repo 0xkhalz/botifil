@@ -22,4 +22,4 @@ Workflow for proposing and recording architectural decisions in `botifil`.
    - Articulate chosen outcome with explicit positive and negative consequences.
 4. **Update Decision Index**: Add the new ADR row to the table in [docs/decisions/README.md](../../../docs/decisions/README.md).
 5. **Verify**: Run `scripts/verify.sh` to validate formatting, line ceilings, and links.
-6. **Open PR**: Submit a pull request titled `docs(adr): propose NNNN slug`.
+6. **Open PR**: Use a plain-word branch `<slug>` and submit a pull request titled `docs(adr): propose <plain-words summary>` (never include ADR numbers alone, milestone IDs, phase numbers, or private tool/config names in the PR title, branch, or commit subjects). Put `Refs: docs/decisions/NNNN-slug.md` in the PR body (and commit body/footer if needed).
