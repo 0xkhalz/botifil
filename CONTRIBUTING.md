@@ -41,4 +41,5 @@ Maintainers bootstrap labels and repository settings via:
 - Reviewer agents submit reviews as inline comments without approving.
 - All review threads must be resolved before merging.
 - Commits must be atomic and change-based using Conventional Commits: never mix change types (`refactor` vs `feat` vs `fix`), and keep tests with their slice (rebase-merge preserves all commits).
+- Commit subjects, branch names, and PR titles must describe WHAT changed in plain words derived from `git diff --staged` (not from a plan): never include milestone IDs (`M1`, `M3-2`), phase numbers, spec/ADR numbers alone, or private tool/config names; keep internal references (`Refs: ...`) in the body/footer only.
 - Only repository maintainers merge pull requests (`gh pr merge --rebase`).
