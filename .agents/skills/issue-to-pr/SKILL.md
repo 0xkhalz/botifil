@@ -28,7 +28,7 @@ Activated when assigned a GitHub issue to implement.
      ```
 
 3. **Provision Isolated Worktree**:
-   - When dispatched by an orchestrator, use the orchestrator-provisioned worktree; otherwise create a flat worktree `.worktrees/<n>-<slug>` for branch `<type>/<n>-<slug>` per [.agents/rules/git-workflow.md](../../../.agents/rules/git-workflow.md):
+   - When dispatched by an orchestrator, use the orchestrator-provisioned worktree; otherwise create a flat worktree `.worktrees/<n>-<slug>` for branch `<type>/<n>-<slug>` using a plain-word `<slug>` (no milestone IDs, phase numbers, spec/ADR numbers alone, or private tool/config names) per [.agents/rules/git-workflow.md](../../../.agents/rules/git-workflow.md):
      ```bash
      git fetch origin && git worktree add .worktrees/<n>-<slug> -b <type>/<n>-<slug> origin/main
      cd .worktrees/<n>-<slug>
@@ -39,7 +39,7 @@ Activated when assigned a GitHub issue to implement.
    - Follow red-green-refactor and commit **continuously at each logical change boundary** (no end-of-task dump commits):
      - Commit preparatory `refactor:` changes first with tests passing.
      - Keep unit/regression tests with their `feat:`/`fix:` slice; commit standalone test additions/refactors as `test:`.
-     - Stage explicit paths or hunks (`git add <path1> <path2>` or `git add -p`, never `git add -A` or `git add .`), inspect `git diff --cached`, and use change-based Conventional Commit messages (never `--no-verify`).
+     - Stage explicit paths or hunks (`git add <path1> <path2>` or `git add -p`, never `git add -A` or `git add .`), inspect `git diff --cached`, and derive plain-word Conventional Commit subjects from `git diff --staged` (not from a plan; never use milestone IDs, phase numbers, spec/ADR numbers alone, or private tool/config names in the subject; put `Refs: ...` in the body/footer only; never pass `--no-verify`).
 
 5. **Run Verification Pipeline**:
    - Execute verification suite (and re-run after any final refactor or fix):
@@ -49,7 +49,7 @@ Activated when assigned a GitHub issue to implement.
    - Resolve errors until exit 0. After 3 consecutive failed repair attempts, escalate with `status:needs-human` and stop.
 
 6. **Pre-Push Audit & Rebase**:
-   - Inspect `git log --stat origin/main..HEAD` to confirm atomic, change-based commits and no transient/non-essential files.
+   - Inspect `git log --stat origin/main..HEAD` to confirm atomic, plain-word, diff-derived commits (`Refs:` in body/footer only; no forbidden IDs or private tool/config names in subjects) and no transient/non-essential files.
    - Rebase on `origin/main` (resolve only session-modified files; abort and ask the user on foreign conflicts):
      ```bash
      git fetch origin && git rebase origin/main
@@ -60,9 +60,9 @@ Activated when assigned a GitHub issue to implement.
      ```bash
      git push -u origin <type>/<n>-<slug>
      ```
-   - Ensure one logical scope per PR and open PR using [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md) with a Conventional Commit `--title` and `--body-file <tmpfile>` containing `Fixes #<n>` (repeat keyword for multiple: `Fixes #1, Fixes #2`), diff summary (`git diff --stat origin/main`), and `./scripts/verify.sh` tail:
+   - Ensure one logical scope per PR and open PR using [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md) with a plain-word Conventional Commit `--title` (no milestone IDs, phase numbers, spec/ADR numbers alone, or private tool/config names) and `--body-file <tmpfile>` containing `Fixes #<n>` (repeat keyword for multiple: `Fixes #1, Fixes #2`), any internal `Refs: ...`, diff summary (`git diff --stat origin/main`), and `./scripts/verify.sh` tail:
      ```bash
-     gh pr create --base main --title "<type>: <concise summary>" --body-file <tmpfile>
+     gh pr create --base main --title "<type>: <plain-words summary>" --body-file <tmpfile>
      ```
 
 8. **Watch CI & Resolve Reviews**:
