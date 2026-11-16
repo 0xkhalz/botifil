@@ -23,5 +23,5 @@ Workflow for authoring and reviewing feature specifications in `botifil`.
    - Maps 1:1 to `.github/ISSUE_TEMPLATE/task.yml`.
    - Specifies an explicit owned-files list, slice boundary, non-goals, and verifier command.
    - Represents one small, focused logical deliverable (no arbitrary LoC limit).
-6. **Verify and Submit**: Run `scripts/verify.sh` to validate formatting and links. Open a PR titled `docs(spec): add NNN-slug specification`.
+6. **Verify and Submit**: Run `scripts/verify.sh` to validate formatting and links. Use a plain-word branch `<slug>` and open a PR titled `docs(spec): add <plain-words feature> specification` (never include spec numbers alone, milestone IDs, phase numbers, or private tool/config names in the PR title, branch, or commit subjects). Put `Refs: docs/specs/NNN-slug/` in the PR body (and commit body/footer if needed).
 7. **Lifecycle Progression**: Merging the spec PR marks the specification `approved` and authorizes creating task issues.
