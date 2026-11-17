@@ -8,7 +8,7 @@ if ! command -v cloudflared >/dev/null 2>&1; then
 fi
 
 # Read BOTIFIL_WEBAPP_BIND from .env when unset in the shell without sourcing secrets.
-if [[ -z "${BOTIFIL_WEBAPP_BIND:-}" && -z "${WEBAPP_BIND:-}" && -f .env ]]; then
+if [[ -z "${BOTIFIL_WEBAPP_BIND:-}" && -f .env ]]; then
   dotenv_bind="$(
     grep -E '^[[:space:]]*BOTIFIL_WEBAPP_BIND=' .env \
       | tail -n 1 \
@@ -21,7 +21,7 @@ if [[ -z "${BOTIFIL_WEBAPP_BIND:-}" && -z "${WEBAPP_BIND:-}" && -f .env ]]; then
   fi
 fi
 
-bind="${BOTIFIL_WEBAPP_BIND:-${WEBAPP_BIND:-127.0.0.1:8080}}"
+bind="${BOTIFIL_WEBAPP_BIND:-127.0.0.1:8080}"
 log_file="$(mktemp -t botifil-cloudflared.XXXXXX.log)"
 cf_pid=""
 
@@ -62,4 +62,4 @@ if [[ -z "$url" ]]; then
 fi
 
 echo "Cloudflare Quick Tunnel active: $url -> http://$bind"
-BOTIFIL_WEBAPP_URL="$url" cargo run --locked
+BOTIFIL_WEBAPP_URL="$url" BOTIFIL_WEBAPP_BIND="$bind" cargo run --locked
