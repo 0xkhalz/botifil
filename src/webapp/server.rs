@@ -186,9 +186,12 @@ where
             let (raw_path, q) = tgt.split_once('?').unwrap_or((&tgt, ""));
             match (m.as_str(), strip_base(&state.config, raw_path)) {
                 ("GET", Some("/")) => (200, HTML, INDEX_HTML.as_bytes().to_vec()),
+                ("GET", Some("/healthz")) => json(200, br#"{"status":"ok"}"#),
                 ("GET", Some("/api/challenge")) => handle_challenge(q, &state).await,
                 ("POST", Some("/api/verify")) => handle_verify(&req_body, &state).await,
-                (_, Some("/" | "/api/challenge" | "/api/verify")) => err(405, "method_not_allowed"),
+                (_, Some("/" | "/healthz" | "/api/challenge" | "/api/verify")) => {
+                    err(405, "method_not_allowed")
+                }
                 _ => err(404, "not_found"),
             }
         }
