@@ -2,7 +2,10 @@ FROM docker.io/library/rust:1.99-bookworm AS builder
 
 WORKDIR /app
 
-RUN rustup target add x86_64-unknown-linux-musl
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends musl-tools \
+    && rm -rf /var/lib/apt/lists/* \
+    && rustup target add x86_64-unknown-linux-musl
 
 ENV CARGO_BUILD_JOBS=2
 
