@@ -57,11 +57,13 @@ The script starts `cloudflared` against `BOTIFIL_WEBAPP_BIND` (default `127.0.0.
 
 1. Set `BOTIFIL_WEBAPP_URL` (your HTTPS public hostname) and `CLOUDFLARE_TUNNEL_TOKEN` (used by the `cloudflared` Podman Compose sidecar) in `.env`.
 2. In Cloudflare Zero Trust, point the tunnel's public hostname origin to `http://botifil:8080`.
-3. Ensure `./data` exists and is writable by the container non-root user (`65532:65532`):
+3. Ensure `./data` exists and is writable by the container non-root user (`65532:65532`). For rootless Podman:
 
    ```bash
-   mkdir -p ./data && chown 65532:65532 ./data
+   mkdir -p ./data && podman unshare chown 65532:65532 ./data
    ```
+
+   For rootful Podman or Docker, use `mkdir -p ./data && chown 65532:65532 ./data` instead.
 
 4. Build and start the stack:
 
