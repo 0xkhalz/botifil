@@ -4,11 +4,6 @@
 
 Telegram bot that approves or declines join requests for groups (Rust + teloxide).
 
-## Status
-
-- **M1 Foundation & M2 Join-Request Gatekeeper**: Implemented and verified.
-- **M3 Persistence & Admin Controls**: Specified in [002 spec](docs/specs/002-persistence-and-admin-controls/spec.md) and [ADR 0006](docs/decisions/0006-persistence-engine.md).
-
 ## Gatekeeper Behavior
 
 - **Group Allowlist**: Filters requests by `BOTIFIL_ALLOWED_CHATS` (empty allows all configured groups).
@@ -110,7 +105,3 @@ Run local verification before opening or updating pull requests:
 - [AGENTS.md](AGENTS.md) — Agent instructions, constraints, and architecture map.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution workflow and collaboration protocol.
 - [SECURITY.md](SECURITY.md) — Security policy and vulnerability reporting.
-- [docs/roadmap.md](docs/roadmap.md) — Project milestones and execution roadmap.
-- [docs/domain/telegram-join-requests.md](docs/domain/telegram-join-requests.md) — Telegram join request mechanics.
-- [docs/specs/README.md](docs/specs/README.md) — Specification index and templates.
-- [docs/decisions/README.md](docs/decisions/README.md) — Architecture Decision Records index.
