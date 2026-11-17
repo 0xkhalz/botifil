@@ -291,6 +291,64 @@ async fn e2e_get_root_serves_ui_html_with_security_headers() -> Res {
 }
 
 #[tokio::test]
+async fn e2e_healthz_returns_ok_and_respects_subpath_and_method() -> Res {
+    let (_tg, bot) = start_telegram_mock().await?;
+    let root_app = TestApp::start(bot.clone(), Some("https://example.com")).await?;
+
+    let ok = http_get(root_app.addr, "/healthz").await?;
+    assert_eq!(ok.status, 200);
+    assert_eq!(
+        ok.headers.get("content-type").map(String::as_str),
+        Some("application/json")
+    );
+    assert_eq!(
+        ok.headers.get("cache-control").map(String::as_str),
+        Some("no-store")
+    );
+    assert_eq!(
+        ok.headers.get("x-content-type-options").map(String::as_str),
+        Some("nosniff")
+    );
+    assert_eq!(ok.body, r#"{"status":"ok"}"#);
+
+    let root_post = http_post_form(root_app.addr, "/healthz", "").await?;
+    assert_eq!(root_post.status, 405);
+    assert!(root_post.body.contains(r#""error":"method_not_allowed""#));
+    root_app.stop().await?;
+
+    let sub_app = TestApp::start(bot, Some("https://example.com/botifil")).await?;
+
+    let sub_ok = http_get(sub_app.addr, "/botifil/healthz").await?;
+    assert_eq!(sub_ok.status, 200);
+    assert_eq!(
+        sub_ok.headers.get("content-type").map(String::as_str),
+        Some("application/json")
+    );
+    assert_eq!(
+        sub_ok.headers.get("cache-control").map(String::as_str),
+        Some("no-store")
+    );
+    assert_eq!(
+        sub_ok
+            .headers
+            .get("x-content-type-options")
+            .map(String::as_str),
+        Some("nosniff")
+    );
+    assert_eq!(sub_ok.body, r#"{"status":"ok"}"#);
+
+    let unprefixed = http_get(sub_app.addr, "/healthz").await?;
+    assert_eq!(unprefixed.status, 404);
+    assert!(unprefixed.body.contains(r#""error":"not_found""#));
+
+    let sub_post = http_post_form(sub_app.addr, "/botifil/healthz", "").await?;
+    assert_eq!(sub_post.status, 405);
+    assert!(sub_post.body.contains(r#""error":"method_not_allowed""#));
+
+    sub_app.stop().await
+}
+
+#[tokio::test]
 async fn e2e_subpath_routing_matches_base_path_and_rejects_siblings() -> Res {
     let (_tg, bot) = start_telegram_mock().await?;
     let app = TestApp::start(bot, Some("https://example.com/botifil")).await?;
