@@ -36,7 +36,42 @@ cargo run --locked
 | `BOTIFIL_CHALLENGE_TTL_SECS` | Challenge timeout in seconds | `1..=300` | `300` |
 | `BOTIFIL_MAX_ATTEMPTS` | Maximum challenge answer attempts before decline | `1..=5` | `2` |
 | `BOTIFIL_ALLOWED_CHATS` | Comma-separated list of allowed chat IDs | Integer IDs (empty allows all) | *(empty)* |
+| `BOTIFIL_DB_PATH` | Persistent redb session database path | File path | `./data/botifil.redb` |
+| `BOTIFIL_WEBAPP_URL` | HTTPS base URL for Telegram WebApp verification (unset = inline buttons) | `https://...` URL | *(unset)* |
+| `BOTIFIL_WEBAPP_BIND` | Listen address for the embedded WebApp HTTP server | `host:port` | `127.0.0.1:8080` |
 | `RUST_LOG` | Tracing log filter level | `trace`, `debug`, `info`, `warn`, `error` | `info` |
+
+## Cloudflare Tunnel (WebApp)
+
+### Local Quick Tunnel
+
+Requires `cloudflared` installed on `PATH`. Run:
+
+```bash
+./scripts/dev-tunnel.sh
+```
+
+The script starts `cloudflared` against `BOTIFIL_WEBAPP_BIND` (default `127.0.0.1:8080`), waits for the ephemeral `https://*.trycloudflare.com` URL, and launches `cargo run --locked` with `BOTIFIL_WEBAPP_URL` set automatically.
+
+### Production (Podman + Named Tunnel)
+
+1. Set `BOTIFIL_WEBAPP_URL` (your HTTPS public hostname) and `CLOUDFLARE_TUNNEL_TOKEN` (used by the `cloudflared` Podman Compose sidecar) in `.env`.
+2. In Cloudflare Zero Trust, point the tunnel's public hostname origin to `http://botifil:8080`.
+3. Ensure `./data` exists and is writable by the container non-root user (`65532:65532`):
+
+   ```bash
+   mkdir -p ./data && chown 65532:65532 ./data
+   ```
+
+4. Build and start the stack:
+
+   ```bash
+   podman compose up -d --build
+   ```
+
+### Cloudflare WAF / Bot Fight Mode
+
+Telegram opens the Mini App inside an in-app WebView, which does not pass browser-based JS or Turnstile challenges. Bypass or disable Bot Fight Mode and JS/Turnstile challenges on the WebApp hostname/path in Cloudflare WAF, otherwise `GET /` and `POST ./api/verify` will fail inside Telegram.
 
 ## Repository Layout
 
