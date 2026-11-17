@@ -21,7 +21,7 @@ services:
     image: docker.io/cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run
     environment:
-      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}"
     depends_on:
       - botifil
     read_only: true
