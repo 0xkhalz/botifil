@@ -24,6 +24,5 @@ verify: OK
 - [ ] One logical scope per PR (small and focused; no unrelated features, fixes, or refactors)
 - [ ] One job per commit (no mixed change types; diff-derived commit messages; tests with their slice)
 - [ ] Plain-word commit subjects, branch name, and PR title (no milestone IDs, phase numbers, spec/ADR numbers alone, or private tool/config names; `Refs:` in body/footer only)
-- [ ] Spec or ADR linked if applicable
 - [ ] No secrets, tokens, private IDs, or local paths
 - [ ] No unapproved dependencies added

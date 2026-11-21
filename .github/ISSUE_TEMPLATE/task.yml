@@ -3,11 +3,11 @@ description: Delegation packet for autonomous agent tasks
 labels: ["status:ready"]
 body:
   - type: input
-    id: parent-spec-issue
+    id: parent-issue
     attributes:
-      label: Parent Spec/Issue
-      description: Parent issue or spec reference (e.g., #12 or docs/specs/NNN-slug/spec.md).
-      placeholder: "#12 or docs/specs/NNN-slug/spec.md"
+      label: Parent Issue
+      description: Parent issue reference (e.g., #12).
+      placeholder: "#12"
     validations:
       required: true
   - type: textarea
