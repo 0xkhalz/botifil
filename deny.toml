@@ -6,6 +6,7 @@ all-features = true
 [advisories]
 ignore = [
     { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 is unmaintained, pulled transitively via aquamarine -> teloxide 0.17.0 with no upstream fix available" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, pulled transitively via teloxide-core 0.13.0 -> teloxide 0.17.0 with no upstream fix available" },
 ]
 
 [licenses]
