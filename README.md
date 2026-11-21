@@ -9,7 +9,9 @@ Telegram bot that approves or declines join requests for groups (Rust + teloxide
 - **Group Allowlist**: Filters requests by `BOTIFIL_ALLOWED_CHATS` (empty allows all configured groups).
 - **Bio Screening**: Detects spam URLs and invite links in applicant user bios (Bot API 10.1+).
 - **Arithmetic DM Challenge**: Sends a math captcha DM to the applicant `user_chat_id`.
-- **Edit-Before-Resolve**: Updates the DM challenge message before resolving join requests to avoid race conditions.
+- **Resolve-Before-Feedback**: Calls `approveChatJoinRequest` / `declineChatJoinRequest` before answering callback queries and editing the DM, preventing false approvals on admin-dismissed requests.
+- **Optional WebApp Verification**: Serves an embedded Telegram Mini App verified via HMAC-SHA256 `initData` when `BOTIFIL_WEBAPP_URL` is set (falls back to inline buttons otherwise).
+- **Restart-Safe Persistence**: Persists pending sessions in an embedded `redb` database with startup expiry reconciliation.
 - **Retry Attempts**: Supports configurable challenge retries via `BOTIFIL_MAX_ATTEMPTS`.
 - **Idempotent Error Handling**: Treats already-resolved requests (`400 HIDE_REQUESTER_MISSING`) safely.
 - **Leave-Pending Policy**: Leaves requests pending on `403 Forbidden` (blocked bot) or TTL expiry; auto-declines only on exhausted attempts or failed bio screening.
@@ -34,6 +36,7 @@ cargo run --locked
 | `BOTIFIL_DB_PATH` | Persistent redb session database path | File path | `./data/botifil.redb` |
 | `BOTIFIL_WEBAPP_URL` | HTTPS base URL for Telegram WebApp verification (unset = inline buttons) | `https://...` URL | *(unset)* |
 | `BOTIFIL_WEBAPP_BIND` | Listen address for the embedded WebApp HTTP server | `host:port` | `127.0.0.1:8080` |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Cloudflare Tunnel token for the cloudflared Podman Compose sidecar | Token string | *(unset)* |
 | `RUST_LOG` | Tracing log filter level | `trace`, `debug`, `info`, `warn`, `error` | `info` |
 
 ## Cloudflare Tunnel (WebApp)
@@ -76,8 +79,6 @@ Telegram opens the Mini App inside an in-app WebView, which does not pass browse
 | --- | --- |
 | `src/` | Bot dispatcher, config, domain models, handlers, screening, and store |
 | `tests/` | End-to-end integration tests using `wiremock` |
-| `docs/` | Roadmap, Telegram mechanics, MADR 4 ADRs, and implementation specs |
-| `.agents/` | Agent rules, roles, workflows, and task skills |
 | `scripts/` | Local verification and developer tooling |
 
 ## Verification
@@ -86,22 +87,17 @@ Run local verification before opening or updating pull requests:
 
 ```bash
 ./scripts/verify.sh         # Run full verification (docs + rust)
-./scripts/verify.sh --docs  # Fast docs check (typos, lychee, actionlint, gitleaks, line limits)
+./scripts/verify.sh --docs  # Fast docs check (typos, lychee, actionlint, gitleaks)
 ./scripts/verify.sh --rust  # Rust toolchain checks (fmt, clippy, nextest, doc tests, deny, shear)
 ```
 
-## Development Workflow
+## Security
 
-1. Feature specification drafted and approved in [docs/specs/README.md](docs/specs/README.md).
-2. GitHub issue created with `status:ready`.
-3. Agent implementer branches in isolated worktree (`.worktrees/`).
-4. Local verification (`./scripts/verify.sh`) passes before PR creation.
-5. GitHub Actions verify `ci-ok` and `pr-title`.
-6. Reviewer agent reviews and comments; implementer resolves feedback.
-7. Maintainer rebase-merges PR to `main` (`gh pr merge --rebase`).
+- **Vulnerability Reporting**: Report vulnerabilities privately via GitHub Security Advisories (**Security** > **Advisories** > **Report a vulnerability**); do not open public issues.
+- **Secret Management**: Supply `TELOXIDE_TOKEN` only via environment variables or an uncommitted `.env`; never commit tokens or chat IDs.
+- **Token Leak Response**: Revoke immediately via `@BotFather` (`/revoke`), generate a new token (`/token`), and rotate deployment secrets.
 
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) — Agent instructions, constraints, and architecture map.
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution workflow and collaboration protocol.
-- [SECURITY.md](SECURITY.md) — Security policy and vulnerability reporting.
+- [CHANGELOG.md](CHANGELOG.md) — Unreleased changes and key architectural decisions.
