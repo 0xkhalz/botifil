@@ -4,7 +4,7 @@ set -euo pipefail
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 echo "Bootstrapping GitHub settings for $REPO..."
 
-# 1. Labels (19 total across 4 groups)
+# 1. Labels (17 total across 4 groups)
 while IFS='|' read -r name color desc; do
   [[ -z "$name" || "$name" =~ ^# ]] && continue
   name=$(echo "$name" | xargs)
@@ -22,8 +22,6 @@ type:perf          | 1d76db | Performance improvement
 area:bot           | 5319e7 | Telegram bot logic
 area:ci            | 5319e7 | CI/CD pipelines and automation
 area:docs          | 5319e7 | Documentation and guides
-area:agents        | 5319e7 | Agent specifications and rules
-status:needs-spec  | fbca04 | Requires specification before implementation
 status:ready       | fbca04 | Ready to be picked up
 status:in-progress | fbca04 | Currently being worked on
 status:blocked     | fbca04 | Blocked by dependencies or questions

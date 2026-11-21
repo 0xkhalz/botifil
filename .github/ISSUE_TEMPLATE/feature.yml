@@ -9,14 +9,6 @@ body:
       description: What problem are you trying to solve or what goal are you trying to achieve?
     validations:
       required: true
-  - type: input
-    id: linked-spec
-    attributes:
-      label: Linked Spec
-      description: Optional. Path to docs/specs/NNN-slug/spec.md for large multi-PR features.
-      placeholder: "docs/specs/NNN-slug/spec.md"
-    validations:
-      required: false
   - type: textarea
     id: acceptance-criteria
     attributes:
