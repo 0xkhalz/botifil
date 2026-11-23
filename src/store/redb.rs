@@ -61,9 +61,21 @@ impl RedbSessionStore {
         if let Some(dir) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir).map_err(err)?;
         }
+        let db = match Database::create(p) {
+            Ok(db) => db,
+            Err(redb::DatabaseError::UpgradeRequired(version)) => {
+                tracing::warn!(
+                    file_format_version = version,
+                    "recreating ephemeral session store with incompatible redb format"
+                );
+                std::fs::remove_file(p).map_err(err)?;
+                Database::create(p).map_err(err)?
+            }
+            Err(e) => return Err(err(e)),
+        };
         let sys = SystemTime::now().duration_since(UNIX_EPOCH);
         let st = Self {
-            db: Database::create(p).map_err(err)?,
+            db,
             max_capacity,
             anchor: Instant::now(),
             anchor_ms: dur_ms(sys.unwrap_or_default()),
@@ -291,6 +303,52 @@ mod tests {
         let r3 = crate::store::SessionStore::open_redb(&p, 2)?;
         assert_eq!(r3.len().await, 1);
         assert!(r3.remove_by_peer(ChatId(-500), UserId(5)).await.is_some() && r3.is_empty().await);
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_format_recreates_ephemeral_db() -> Res<()> {
+        let dir = std::env::temp_dir().join(format!("botifil-legacy-{}", std::process::id()));
+        let (_tmp, p) = (Tmp(dir.clone()), dir.join("legacy.redb"));
+        let now = Instant::now();
+        let exp = now + Duration::from_secs(60);
+
+        let st = RedbSessionStore::open(&p, 4)?;
+        st.upsert(sess(-101, 1, exp), now)?;
+        drop(st);
+
+        // redb stores the file format version byte at the start of both 128-byte
+        // transaction header slots (offsets 64 and 192).
+        let mut bytes = std::fs::read(&p).map_err(err)?;
+        assert!(bytes.len() > 192);
+        bytes[64] = 2;
+        bytes[192] = 2;
+        std::fs::write(&p, bytes).map_err(err)?;
+
+        let reopened = RedbSessionStore::open(&p, 4)?;
+        assert!(reopened.is_empty());
+
+        let tok = reopened.upsert(sess(-101, 42, exp), now)?;
+        assert!(
+            reopened
+                .get_by_token(&tok, now)?
+                .is_some_and(|s| s.user_id == UserId(42))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn non_redb_file_is_preserved_on_open_error() -> Res<()> {
+        let dir = std::env::temp_dir().join(format!("botifil-nonredb-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).map_err(err)?;
+        let (_tmp, p) = (Tmp(dir.clone()), dir.join("foreign.dat"));
+        let payload = b"not-a-redb-file";
+        std::fs::write(&p, payload).map_err(err)?;
+
+        let res = RedbSessionStore::open(&p, 4);
+        assert!(matches!(res, Err(StoreError::Backend(_))));
+        assert!(p.exists());
+        assert_eq!(std::fs::read(&p).map_err(err)?, payload);
         Ok(())
     }
 }
