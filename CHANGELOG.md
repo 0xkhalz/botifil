@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Upgrade `redb` to 4.6 & legacy store recreation**: Bumped `redb` from 2.6 to 4.6 and updated `RedbSessionStore::open` to recreate ephemeral session store files when an incompatible older `redb` file format is detected on startup.
 - **Resolve-before-feedback ordering**: Calls `approveChatJoinRequest` / `declineChatJoinRequest` before `answerCallbackQuery` and best-effort `editMessageText` so admin-dismissed requests cannot show false approvals.
 - **Single-source-of-truth documentation**: Consolidated project documentation into [README.md](README.md), [AGENTS.md](AGENTS.md), and [CHANGELOG.md](CHANGELOG.md).
 
