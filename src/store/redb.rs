@@ -1,7 +1,7 @@
 use super::AttemptOutcome::{Approved, DeclinedExhausted, NotFoundOrExpired, Retry, WrongUser};
 use super::{AttemptOutcome, Storage, StoreError};
 use crate::domain::{Challenge, PendingJoin, SessionToken};
-use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use teloxide::types::{ChatId, MessageId, UserId};
 use tokio::time::Instant;
